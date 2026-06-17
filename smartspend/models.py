@@ -45,3 +45,18 @@ class GroceryDataset:
     products: list[Product]
     stores: list[Store]
     default_basket: list[BasketItem]
+
+
+@dataclass(frozen=True)
+class StoreResult:
+    """Calculated comparison result for one grocery store."""
+
+    store: Store
+    basket_price_huf: int
+    travel_cost_huf: int
+    effective_total_cost_huf: int
+    remaining_budget_huf: int
+    savings_vs_usual_huf: int
+    is_eligible: bool
+    fits_budget: bool
+    rank: int
