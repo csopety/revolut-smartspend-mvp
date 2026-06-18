@@ -62,6 +62,7 @@ def test_route_falls_back_to_simulated_when_no_openrouteservice_key(
 ) -> None:
     db_path = tmp_path / "smartspend_demo.db"
     reset_demo_data(db_path)
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("OPENROUTESERVICE_API_KEY", raising=False)
     monkeypatch.delenv("ORS_API_KEY", raising=False)
 
@@ -90,7 +91,9 @@ def test_walking_route_can_use_openrouteservice_when_response_works(
     def successful_request(*args: object, **kwargs: object) -> FakeRouteResponse:
         url = str(args[0])
         assert url.endswith("/foot-walking/json")
-        assert kwargs["headers"] == {"Authorization": "demo-token"}
+        assert kwargs["headers"]["Authorization"] == "demo-token"
+        assert kwargs["headers"]["Content-Type"] == "application/json; charset=utf-8"
+        assert kwargs["headers"]["Accept"] == "application/json"
         assert kwargs["json"]["coordinates"][0] == [19.0244, 47.5071]
         assert kwargs["json"]["coordinates"][1] == [19.0371, 47.5404]
         assert kwargs["timeout"] == 8
@@ -110,7 +113,7 @@ def test_walking_route_can_use_openrouteservice_when_response_works(
     assert route.travel_minutes == 16
 
 
-def test_car_route_can_use_openrouteservice_with_legacy_google_flag(
+def test_car_route_can_use_openrouteservice_with_live_route_flag(
     tmp_path: Path,
 ) -> None:
     db_path = tmp_path / "smartspend_demo.db"
@@ -122,7 +125,7 @@ def test_car_route_can_use_openrouteservice_with_legacy_google_flag(
 
     route = get_route(
         "lidl_huvosvolgyi",
-        use_google_maps=True,
+        use_live_routes=True,
         transport_mode="car",
         api_key="demo-token",
         db_path=str(db_path),

@@ -61,7 +61,7 @@ def routes() -> dict[str, RouteResult]:
             "cheap_far",
             distance_km=8.0,
             travel_minutes=25,
-            route_source="Google Maps",
+            route_source="OpenRouteService",
         ),
         "missing": RouteResult(
             "missing",

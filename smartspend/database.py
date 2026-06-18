@@ -285,7 +285,7 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 ),
                 remaining_budget_huf INTEGER NOT NULL,
                 route_source TEXT NOT NULL CHECK (
-                    route_source IN ('Simulated', 'Google Maps', 'OpenRouteService')
+                    route_source IN ('Simulated', 'OpenRouteService')
                 ),
                 simulated_notice TEXT NOT NULL
             );
@@ -411,7 +411,7 @@ def migrate_database(connection: sqlite3.Connection) -> None:
 
 
 def migrate_transactions_route_source_check(connection: sqlite3.Connection) -> None:
-    """Allow OpenRouteService route sources in existing demo databases."""
+    """Allow only current route sources in existing demo databases."""
 
     table_row = connection.execute(
         """
@@ -424,7 +424,7 @@ def migrate_transactions_route_source_check(connection: sqlite3.Connection) -> N
         return
 
     table_sql = str(table_row["sql"])
-    if "OpenRouteService" in table_sql:
+    if "OpenRouteService" in table_sql and "Google Maps" not in table_sql:
         return
 
     connection.executescript(
@@ -450,7 +450,7 @@ def migrate_transactions_route_source_check(connection: sqlite3.Connection) -> N
             ),
             remaining_budget_huf INTEGER NOT NULL,
             route_source TEXT NOT NULL CHECK (
-                route_source IN ('Simulated', 'Google Maps', 'OpenRouteService')
+                route_source IN ('Simulated', 'OpenRouteService')
             ),
             simulated_notice TEXT NOT NULL
         );
@@ -478,7 +478,10 @@ def migrate_transactions_route_source_check(connection: sqlite3.Connection) -> N
             travel_time_cost_huf,
             spending_increase_huf,
             remaining_budget_huf,
-            route_source,
+            CASE
+                WHEN route_source = 'Google Maps' THEN 'OpenRouteService'
+                ELSE route_source
+            END,
             simulated_notice
         FROM transactions;
 

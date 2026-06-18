@@ -140,10 +140,10 @@ def finalize_purchase(
         raise ValueError("Travel monetary cost cannot be negative.")
     if travel_time_cost_huf < 0:
         raise ValueError("Travel-time cost cannot be negative.")
-    valid_route_sources = {"Simulated", "Google Maps", "OpenRouteService"}
+    valid_route_sources = {"Simulated", "OpenRouteService"}
     if route_source not in valid_route_sources:
         raise ValueError(
-            "Route source must be 'Simulated', 'Google Maps', or 'OpenRouteService'."
+            "Route source must be 'Simulated' or 'OpenRouteService'."
         )
 
     finalized_at = datetime.now(UTC).isoformat(timespec="seconds")

@@ -112,7 +112,7 @@ def initialize_ui_state() -> None:
 
     st.session_state.setdefault("active_screen", "Home")
     st.session_state.setdefault("consent_enabled", True)
-    st.session_state.setdefault("use_google_maps", False)
+    st.session_state.setdefault("use_live_routes", False)
     st.session_state.setdefault("optimization_mode", OPTIMIZATION_BALANCED)
     st.session_state.setdefault("transport_mode", TRANSPORT_WALKING)
     st.session_state.setdefault("value_of_time_huf_per_min", 35)
@@ -416,7 +416,7 @@ def build_settings(profile: dict[str, int | str]) -> dict[str, int | str | bool]
         "origin_address": str(profile.get("origin_address") or DEFAULT_ORIGIN_ADDRESS),
         "optimization_mode": str(st.session_state["optimization_mode"]),
         "transport_mode": str(st.session_state["transport_mode"]),
-        "use_google_maps": bool(st.session_state["use_google_maps"]),
+        "use_live_routes": bool(st.session_state["use_live_routes"]),
         "consent_enabled": bool(st.session_state["consent_enabled"]),
     }
 
@@ -576,7 +576,7 @@ def load_investor_demo_scenario() -> None:
     st.session_state["optimization_mode"] = OPTIMIZATION_BALANCED
     st.session_state["transport_mode"] = TRANSPORT_PUBLIC_TRANSPORT
     st.session_state["value_of_time_huf_per_min"] = 35
-    st.session_state["use_google_maps"] = False
+    st.session_state["use_live_routes"] = False
     st.session_state["consent_enabled"] = True
     st.session_state["comparison_requested"] = True
     st.session_state["last_finalization_receipt"] = None
@@ -695,8 +695,7 @@ def build_recommendation(
         store.id: get_route(
             store.id,
             origin=str(settings["origin_address"]),
-            use_google_maps=bool(settings["use_google_maps"]),
-            use_openrouteservice=bool(settings["use_google_maps"]),
+            use_live_routes=bool(settings["use_live_routes"]),
             transport_mode=str(settings["transport_mode"]),
         )
         for store in stores
@@ -1370,9 +1369,9 @@ def render_setup_screen(profile: dict[str, int | str]) -> None:
         "I consent to use simulated supported store, route, price, transaction, savings, and historical data for this local MVP calculation.",
         value=bool(st.session_state["consent_enabled"]),
     )
-    st.session_state["use_google_maps"] = st.checkbox(
-        "Use live routing API when available",
-        value=bool(st.session_state["use_google_maps"]),
+    st.session_state["use_live_routes"] = st.checkbox(
+        "Use live routing via OpenRouteService",
+        value=bool(st.session_state["use_live_routes"]),
         help="Uses OpenRouteService for walking and car route estimates when an API key is available. Public transport remains simulated in this MVP.",
     )
     render_route_api_status(str(st.session_state["transport_mode"]))

@@ -22,7 +22,7 @@ All banking, grocery, transaction, savings, route, historical, and pilot KPI dat
 - Current-month on-track prediction using current and historical demo data.
 - Spending insights charts and simulated pilot KPI dashboard.
 - Trust/audit drawer explaining data, formulas, guardrails, and simulation boundaries.
-- Optional Google Maps route lookup with safe simulated fallback.
+- Optional OpenRouteService walking/car route lookup with safe simulated fallback.
 - Agentic-style explanation that explains calculated results only.
 
 ## Installation
@@ -57,7 +57,7 @@ The suite covers database seeding, search, basket behavior, optimizer logic, war
 - `smartspend/product_search.py`: deterministic search over names, aliases, prefixes, partials, and tags.
 - `smartspend/basket.py`: basket add/edit/remove/clear logic.
 - `smartspend/optimizer.py`: rule-based recommendation engine.
-- `smartspend/route_service.py`: Google Maps optional lookup with simulated fallback.
+- `smartspend/route_service.py`: OpenRouteService walking/car lookup with simulated fallback.
 - `smartspend/transactions.py`: purchase finalization, spending update, and previous list persistence.
 - `smartspend/favorites.py`: favorite list save/reload/delete.
 - `smartspend/savings.py`: simulated savings goals and movements.
@@ -115,9 +115,9 @@ History → Pilot proof shows simulated adoption, repeat usage, average saving p
 
 Setup and Pilot proof include a trust/audit drawer with data used, data not used, formulas, guardrails, and the simulated-data disclaimer. It explicitly states there is no real banking connection, Revolut account, payment, retailer API, money movement, or guaranteed-cheapest claim.
 
-## Optional Google Maps
+## Optional OpenRouteService
 
-The app works without Google Maps. If `GOOGLE_MAPS_API_KEY` is available through the environment or Streamlit secrets and the user enables Google Maps in Setup, route distance/time may come from Google Maps. If no key exists or the API fails, the app falls back to simulated routes. Google Maps only affects distance, travel time, and route source.
+The app works without a live route API. If `OPENROUTESERVICE_API_KEY` is available through the environment, `.env`, or Streamlit secrets, the app can use OpenRouteService for walking and car route estimates when enabled in Setup. `ORS_API_KEY` is also supported as a fallback variable name. Public transport remains simulated in this MVP. If no key exists or the API fails, the app falls back to simulated routes. OpenRouteService only affects distance, travel time, and route source.
 
 ## AI And Codex Usage
 
@@ -127,7 +127,7 @@ Codex was used to implement the MVP in phases: data and persistence, search and 
 
 - Simulated prices may not match real stores.
 - Store availability and promotions are invented for demo purposes.
-- Route data is simulated unless Google Maps is explicitly configured.
+- Route data is simulated unless OpenRouteService is enabled and available for walking or car routes.
 - The app has no authentication or production privacy model.
 - The app is not financial advice.
 - There is no real Revolut integration.

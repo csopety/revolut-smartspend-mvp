@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 import requests
+from dotenv import find_dotenv, load_dotenv
 
 from smartspend.database import (
     DEFAULT_DB_PATH,
@@ -17,13 +18,11 @@ from smartspend.database import (
     ensure_demo_database,
 )
 
-GOOGLE_DIRECTIONS_URL = "https://maps.googleapis.com/maps/api/directions/json"
 OPENROUTESERVICE_DIRECTIONS_URL = (
     "https://api.openrouteservice.org/v2/directions/{profile}/json"
 )
 ROUTE_TIMEOUT_SECONDS = 8
 ROUTE_SOURCE_SIMULATED = "Simulated"
-ROUTE_SOURCE_GOOGLE_MAPS = "Google Maps"
 ROUTE_SOURCE_OPENROUTESERVICE = "OpenRouteService"
 TRANSPORT_WALKING = "walking"
 TRANSPORT_CAR = "car"
@@ -45,7 +44,6 @@ class RouteResult:
 def get_route(
     store_id: str,
     origin: str = DEFAULT_ORIGIN_ADDRESS,
-    use_google_maps: bool = False,
     use_openrouteservice: bool = False,
     use_live_routes: bool = False,
     transport_mode: str = TRANSPORT_CAR,
@@ -55,7 +53,7 @@ def get_route(
 ) -> RouteResult:
     """Return live OpenRouteService route details when possible, otherwise simulated."""
 
-    if use_google_maps or use_openrouteservice or use_live_routes:
+    if use_openrouteservice or use_live_routes:
         key = api_key or get_openrouteservice_api_key()
         if key:
             try:
@@ -131,7 +129,11 @@ def get_openrouteservice_route(
     try:
         response = request_get(
             OPENROUTESERVICE_DIRECTIONS_URL.format(profile=profile),
-            headers={"Authorization": api_key},
+            headers={
+                "Authorization": api_key,
+                "Content-Type": "application/json; charset=utf-8",
+                "Accept": "application/json",
+            },
             json={"coordinates": [list(origin_coordinates), list(store_coordinates)]},
             timeout=ROUTE_TIMEOUT_SECONDS,
         )
@@ -218,80 +220,12 @@ def get_store_coordinates(
     return (float(row["longitude"]), float(row["latitude"]))
 
 
-def get_google_maps_route(
-    store_id: str,
-    origin: str,
-    api_key: str,
-    db_path: str = str(DEFAULT_DB_PATH),
-    request_get: Callable[..., object] = requests.get,
-) -> RouteResult:
-    """Request Google Maps route distance/time for a store."""
-
-    ensure_demo_database(db_path)
-    with connect(db_path) as connection:
-        row = connection.execute(
-            """
-            SELECT id, name, neighborhood
-            FROM stores
-            WHERE id = ?
-            """,
-            (store_id,),
-        ).fetchone()
-
-    if row is None:
-        raise ValueError(f"No store found with id '{store_id}'.")
-
-    try:
-        response = request_get(
-            GOOGLE_DIRECTIONS_URL,
-            params={
-                "origin": origin,
-                "destination": f"{row['name']}, {row['neighborhood']}, Budapest",
-                "mode": "driving",
-                "key": api_key,
-            },
-            timeout=5,
-        )
-        response.raise_for_status()
-        payload = response.json()
-
-        if payload.get("status") != "OK":
-            raise ValueError("Google Maps route lookup failed.")
-
-        leg = payload["routes"][0]["legs"][0]
-        distance_meters = int(leg["distance"]["value"])
-        duration_seconds = int(leg["duration"]["value"])
-    except Exception:
-        raise ValueError("Google Maps route lookup failed.") from None
-
-    return RouteResult(
-        store_id=row["id"],
-        distance_km=round(distance_meters / 1000, 1),
-        travel_minutes=max(1, round(duration_seconds / 60)),
-        route_source=ROUTE_SOURCE_GOOGLE_MAPS,
-    )
-
-
-def get_google_maps_api_key() -> str | None:
-    """Read Google Maps API key from environment or Streamlit secrets."""
-
-    environment_key = os.getenv("GOOGLE_MAPS_API_KEY")
-    if environment_key:
-        return environment_key
-
-    try:
-        import streamlit as st
-
-        secret_value = st.secrets.get("GOOGLE_MAPS_API_KEY")
-    except Exception:
-        return None
-
-    return str(secret_value) if secret_value else None
-
-
 def get_openrouteservice_api_key() -> str | None:
     """Read OpenRouteService API key from environment or Streamlit secrets."""
 
+    dotenv_path = find_dotenv(usecwd=True)
+    if dotenv_path:
+        load_dotenv(dotenv_path=dotenv_path)
     environment_key = os.getenv("OPENROUTESERVICE_API_KEY") or os.getenv("ORS_API_KEY")
     if environment_key:
         return environment_key

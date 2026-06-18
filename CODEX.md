@@ -28,7 +28,7 @@ Important:
 - `smartspend/database.py`: local SQLite persistence at `data/smartspend_demo.db`, additive migrations, seeded demo data, profile update support.
 - `smartspend/product_search.py`: search over product names, display names, aliases, prefixes, partial strings, and tags.
 - `smartspend/basket.py`: basket add/edit/remove/clear behavior.
-- `smartspend/route_service.py`: optional Google Maps lookup with simulated fallback.
+- `smartspend/route_service.py`: optional OpenRouteService walking/car route lookup with simulated fallback.
 - `smartspend/optimizer.py`: deterministic store recommendation logic.
 - `smartspend/transactions.py`: simulated purchase finalization, transaction lines, previous lists, and spending updates.
 - `smartspend/favorites.py`: favorite list save/reload/delete.
@@ -59,7 +59,7 @@ Important:
 - Historical charts for monthly budget, weekly pattern, and store split.
 - Simulated pilot KPI dashboard.
 - Trust/audit drawer with data used, data not used, formulas, guardrails, and simulation boundaries.
-- Optional Google Maps support through `GOOGLE_MAPS_API_KEY`, with safe simulated fallback.
+- Optional OpenRouteService support through `OPENROUTESERVICE_API_KEY`, with `ORS_API_KEY` fallback and safe simulated fallback.
 
 ## Non-Negotiable Rules
 
