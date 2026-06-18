@@ -12,10 +12,10 @@ from smartspend.database import (
 )
 
 EXPECTED_STORE_COORDINATES = {
-    "lidl_huvosvolgyi": (47.54840, 18.94768),
-    "tesco_becsi": (47.56550, 19.01056),
-    "aldi_mammut": (47.56710, 19.01238),
-    "spar_rozsakert": (47.56710, 19.01238),
+    "lidl_huvosvolgyi": (47.54510653574783, 18.962848219071322),
+    "tesco_becsi": (47.56307158883334, 19.021628036706577),
+    "aldi_mammut": (47.508623779082136, 19.026129496998564),
+    "spar_rozsakert": (47.522678948771826, 19.014748181658817),
 }
 
 

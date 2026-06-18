@@ -95,7 +95,10 @@ def test_walking_route_can_use_openrouteservice_when_response_works(
         assert kwargs["headers"]["Content-Type"] == "application/json; charset=utf-8"
         assert kwargs["headers"]["Accept"] == "application/json"
         assert kwargs["json"]["coordinates"][0] == [19.0244, 47.5071]
-        assert kwargs["json"]["coordinates"][1] == [19.01056, 47.56550]
+        assert kwargs["json"]["coordinates"][1] == [
+            19.021628036706577,
+            47.56307158883334,
+        ]
         assert kwargs["timeout"] == 8
         return FakeRouteResponse(successful_ors_payload())
 
@@ -122,7 +125,10 @@ def test_car_route_can_use_openrouteservice_with_live_route_flag(
     def successful_request(*args: object, **kwargs: object) -> FakeRouteResponse:
         assert str(args[0]).endswith("/driving-car/json")
         assert kwargs["json"]["coordinates"][0] == [19.0244, 47.5071]
-        assert kwargs["json"]["coordinates"][1] == [18.94768, 47.54840]
+        assert kwargs["json"]["coordinates"][1] == [
+            18.962848219071322,
+            47.54510653574783,
+        ]
         return FakeRouteResponse(successful_ors_payload(3500, 780))
 
     route = get_route(

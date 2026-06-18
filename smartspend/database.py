@@ -22,8 +22,8 @@ STORE_SEEDS = [
         "neighborhood": "Huvosvolgy",
         "travel_minutes": 14,
         "distance_km": 3.5,
-        "latitude": 47.54840,
-        "longitude": 18.94768,
+        "latitude": 47.54510653574783,
+        "longitude": 18.962848219071322,
     },
     {
         "id": "aldi_mammut",
@@ -32,8 +32,8 @@ STORE_SEEDS = [
         "neighborhood": "Szell Kalman ter",
         "travel_minutes": 9,
         "distance_km": 2.2,
-        "latitude": 47.56710,
-        "longitude": 19.01238,
+        "latitude": 47.508623779082136,
+        "longitude": 19.026129496998564,
     },
     {
         "id": "spar_rozsakert",
@@ -42,8 +42,8 @@ STORE_SEEDS = [
         "neighborhood": "Torokvesz",
         "travel_minutes": 7,
         "distance_km": 1.8,
-        "latitude": 47.56710,
-        "longitude": 19.01238,
+        "latitude": 47.522678948771826,
+        "longitude": 19.014748181658817,
     },
     {
         "id": "tesco_becsi",
@@ -52,8 +52,8 @@ STORE_SEEDS = [
         "neighborhood": "Ujlak",
         "travel_minutes": 18,
         "distance_km": 4.5,
-        "latitude": 47.56550,
-        "longitude": 19.01056,
+        "latitude": 47.56307158883334,
+        "longitude": 19.021628036706577,
     },
 ]
 
