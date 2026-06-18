@@ -10,7 +10,7 @@ import plotly.express as px
 import streamlit as st
 
 from smartspend.agentic_explainer import explain_recommendation
-from smartspend.basket import Basket, add_product, edit_quantity, remove_product
+from smartspend.basket import Basket, BasketLine, add_product, edit_quantity, remove_product
 from smartspend.database import (
     DEFAULT_DB_PATH,
     DEFAULT_ORIGIN_ADDRESS,
@@ -94,6 +94,7 @@ def main() -> None:
     render_app_header()
     render_phone_navigation()
     render_persistent_notice()
+    render_finalization_verification()
 
     active_screen = st.session_state["active_screen"]
     if active_screen == "Home":
@@ -117,6 +118,7 @@ def initialize_ui_state() -> None:
     st.session_state.setdefault("value_of_time_huf_per_min", 35)
     st.session_state.setdefault("comparison_requested", False)
     st.session_state.setdefault("last_success_message", "")
+    st.session_state.setdefault("last_finalization_receipt", None)
 
 
 def apply_page_styles() -> None:
@@ -336,6 +338,71 @@ def render_persistent_notice() -> None:
             st.rerun()
 
 
+def render_finalization_verification() -> None:
+    """Render closed-loop simulated savings verification after finalization."""
+
+    receipt = st.session_state.get("last_finalization_receipt")
+    if not receipt:
+        return
+
+    saved_huf = int(receipt["estimated_verified_saving_huf"])
+    st.markdown(
+        f"""
+        <div class="recommendation-card">
+            <div class="smart-kicker">Simulated savings verification</div>
+            <h2>You saved an estimated {escape(format_huf(saved_huf))}</h2>
+            <p class="smart-subtle">
+                This is a simulated comparison against the usual-store estimate.
+                No payment, receipt OCR, banking action, or real money transfer occurred.
+            </p>
+            <div class="metric-grid">
+                <div class="mini-metric"><div class="mini-label">Finalized basket</div><div class="mini-value">{escape(format_huf(int(receipt["finalized_basket_total_huf"])))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Usual-store estimate</div><div class="mini-value">{escape(format_huf(int(receipt["usual_store_estimate_huf"])))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Counted toward budget</div><div class="mini-value">{escape(format_huf(int(receipt["amount_counted_toward_budget_huf"])))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Remaining budget</div><div class="mini-value">{escape(format_huf(int(receipt["remaining_budget_huf"])))}</div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if receipt.get("savings_goal_name"):
+        st.success(
+            f"Simulated movement: {format_huf(saved_huf)} to "
+            f"{receipt['savings_goal_name']}. This is not a real money transfer."
+        )
+    else:
+        st.caption("No simulated savings goal movement was selected.")
+
+    with st.expander("View simulated verification details"):
+        st.write(f"Store actually visited: {receipt['visited_store_name']}")
+        st.write(
+            f"Finalized basket total: "
+            f"{format_huf(int(receipt['finalized_basket_total_huf']))}"
+        )
+        st.write(
+            f"Usual-store estimate: "
+            f"{format_huf(int(receipt['usual_store_estimate_huf']))}"
+        )
+        st.write(f"Estimated verified saving: {format_huf(saved_huf)}")
+        st.write(
+            f"Amount counted toward budget: "
+            f"{format_huf(int(receipt['amount_counted_toward_budget_huf']))}"
+        )
+        st.write(
+            f"Remaining budget: {format_huf(int(receipt['remaining_budget_huf']))}"
+        )
+        if receipt.get("savings_goal_name"):
+            st.write(f"Selected simulated savings goal: {receipt['savings_goal_name']}")
+        st.caption(
+            "Simulated only: no confirmed payment, receipt OCR, external account "
+            "update, or real transfer."
+        )
+
+    if st.button("Dismiss simulated verification", key="dismiss_finalization_receipt"):
+        st.session_state["last_finalization_receipt"] = None
+        st.rerun()
+
+
 def build_settings(profile: dict[str, int | str]) -> dict[str, int | str | bool]:
     """Build calculation settings from persisted profile and UI-only choices."""
 
@@ -477,8 +544,47 @@ def render_quick_actions(current_basket: Basket) -> None:
     if col2.button("View history", use_container_width=True):
         st.session_state["active_screen"] = "History"
         st.rerun()
+    if st.button("Load investor demo scenario", type="primary", use_container_width=True):
+        load_investor_demo_scenario()
+        st.rerun()
     st.caption(f"Current planning basket: {len(current_basket.lines)} item types. Planning does not update spending.")
     st.markdown("</div>", unsafe_allow_html=True)
+
+
+def load_investor_demo_scenario() -> None:
+    """Load a deterministic investor demo without finalizing purchase."""
+
+    update_user_profile(
+        monthly_grocery_budget_huf=165000,
+        usual_store_id="spar_rozsakert",
+        max_travel_minutes=16,
+        travel_cost_per_km_huf=120,
+        origin_address=DEFAULT_ORIGIN_ADDRESS,
+    )
+    save_current_basket(
+        Basket(
+            lines=(
+                BasketLine("milk", 2),
+                BasketLine("bread_loaf", 1),
+                BasketLine("cucumber", 2),
+                BasketLine("chicken_breast", 1),
+                BasketLine("trappista_cheese", 1),
+                BasketLine("apples", 1),
+            )
+        )
+    )
+    st.session_state["optimization_mode"] = OPTIMIZATION_BALANCED
+    st.session_state["transport_mode"] = TRANSPORT_PUBLIC_TRANSPORT
+    st.session_state["value_of_time_huf_per_min"] = 35
+    st.session_state["use_google_maps"] = False
+    st.session_state["consent_enabled"] = True
+    st.session_state["comparison_requested"] = True
+    st.session_state["last_finalization_receipt"] = None
+    st.session_state["last_success_message"] = (
+        "Investor demo scenario loaded. No purchase was finalized, no transaction "
+        "was created, and no savings goal was updated."
+    )
+    st.session_state["active_screen"] = "Plan"
 
 
 def render_plan_screen(
@@ -516,7 +622,6 @@ def render_plan_screen(
         render_agentic_explanation(optimization, warnings)
 
     render_finalization(current_basket, optimization)
-    render_savings_goal_action(optimization)
 
 
 def render_basket_builder(current_basket: Basket) -> Basket:
@@ -703,9 +808,12 @@ def explain_non_winning_store(
         return "it has unavailable required basket items in the simulated assortment."
     if not result.within_max_travel_time:
         return "it is above the selected max travel time, so it remains visible but cannot win."
+    if result.product_total_huf > winner.product_total_huf:
+        difference = result.product_total_huf - winner.product_total_huf
+        return f"its product basket price is {format_huf(difference)} higher than the recommendation."
     if result.net_total_cost_huf > winner.net_total_cost_huf:
         difference = result.net_total_cost_huf - winner.net_total_cost_huf
-        return f"its estimated total is {format_huf(difference)} higher than the recommendation."
+        return f"its net comparison total is {format_huf(difference)} higher than the recommendation."
     if result.confidence_score < winner.confidence_score:
         return "its confidence score is lower for this basket."
     return "the selected optimization mode ranked the recommendation slightly higher."
@@ -715,6 +823,8 @@ def render_calculation_receipt(optimization: PremiumOptimizationResult) -> None:
     """Render auditable calculation receipt."""
 
     st.subheader("Calculation receipt")
+    if optimization.recommended:
+        render_calculation_receipt_card(optimization.recommended)
     with st.expander("View store-by-store calculation"):
         st.dataframe(
             pd.DataFrame([premium_result_row(result) for result in optimization.results]),
@@ -725,6 +835,31 @@ def render_calculation_receipt(optimization: PremiumOptimizationResult) -> None:
             "Net total = product total + estimated travel monetary cost + travel-time opportunity cost. "
             "Travel-time cost is never counted as real spending."
         )
+
+
+def render_calculation_receipt_card(result: PremiumStoreResult) -> None:
+    """Render the required receipt values for one store result."""
+
+    usual_store_net_total = result.net_total_cost_huf + result.savings_vs_usual_store_huf
+    st.markdown(
+        f"""
+        <div class="glass-card">
+            <div class="smart-kicker">Auditable calculation</div>
+            <h3>{escape(result.store.name)}</h3>
+            <div class="metric-grid">
+                <div class="mini-metric"><div class="mini-label">Product basket total</div><div class="mini-value">{escape(format_huf(result.product_total_huf))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Travel monetary cost</div><div class="mini-value">{escape(format_huf(result.travel_monetary_cost_huf))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Travel-time opportunity cost</div><div class="mini-value">{escape(format_huf(result.travel_time_cost_huf))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Net comparison total</div><div class="mini-value">{escape(format_huf(result.net_total_cost_huf))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Usual-store net total</div><div class="mini-value">{escape(format_huf(usual_store_net_total))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Savings vs usual</div><div class="mini-value">{escape(format_huf(result.savings_vs_usual_store_huf))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Savings vs most expensive</div><div class="mini-value">{escape(format_huf(result.savings_vs_most_expensive_store_huf))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Remaining budget after purchase</div><div class="mini-value">{escape(format_huf(result.remaining_budget_after_purchase_huf))}</div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_finalization(
@@ -742,31 +877,107 @@ def render_finalization(
         return
 
     recommendation = optimization.recommended
+    store_options = [result.store.id for result in optimization.results]
+    selected_store_id = st.selectbox(
+        "Store actually visited",
+        options=store_options,
+        format_func=lambda store_id: next(
+            result.store.name for result in optimization.results if result.store.id == store_id
+        ),
+        index=store_options.index(recommendation.store.id),
+    )
+    selected_result = result_for_store(optimization, selected_store_id)
     list_name = st.text_input(
         "Simulated list name",
-        value=f"{recommendation.store.chain} simulated purchase",
+        value=f"{selected_result.store.chain} simulated purchase",
     )
     include_travel = st.checkbox(
         "Count estimated travel monetary cost as real grocery spending for this simulation",
         value=False,
     )
+    positive_savings = max(selected_result.savings_vs_usual_store_huf, 0)
+    selected_goal_id = "none"
+    selected_goal_name = ""
+    if positive_savings > 0:
+        goals = list_savings_goals()
+        goal_options = ["none", *[goal.id for goal in goals]]
+        selected_goal_id = st.selectbox(
+            "Optional simulated savings goal",
+            options=goal_options,
+            format_func=lambda goal_id: "Do not move simulated savings"
+            if goal_id == "none"
+            else next(goal.name for goal in goals if goal.id == goal_id),
+        )
+        if selected_goal_id != "none":
+            selected_goal_name = next(goal.name for goal in goals if goal.id == selected_goal_id)
+    else:
+        st.caption("No positive estimated saving is available for a simulated goal movement.")
+
+    render_calculation_receipt_card(selected_result)
+
     if st.button("Finalize simulated purchase", type="primary", use_container_width=True):
         try:
             result = finalize_purchase(
-                store_id=recommendation.store.id,
+                store_id=selected_result.store.id,
                 basket=current_basket,
-                travel_monetary_cost_huf=recommendation.travel_monetary_cost_huf,
-                travel_time_cost_huf=recommendation.travel_time_cost_huf,
+                travel_monetary_cost_huf=selected_result.travel_monetary_cost_huf,
+                travel_time_cost_huf=selected_result.travel_time_cost_huf,
                 include_travel_monetary_cost=include_travel,
-                route_source=recommendation.route_source,
+                route_source=selected_result.route_source,
                 list_name=list_name,
             )
+            movement_goal_name = ""
+            if selected_goal_id != "none" and positive_savings > 0:
+                movement = simulate_save_difference_to_goal(
+                    selected_goal_id,
+                    positive_savings,
+                )
+                movement_goal_name = movement.goal_name
         except ValueError as error:
             st.error(str(error))
         else:
             st.session_state["last_success_message"] = result.success_message
+            st.session_state["last_finalization_receipt"] = build_finalization_receipt(
+                selected_result=selected_result,
+                finalization_result=result,
+                savings_goal_name=movement_goal_name or selected_goal_name,
+            )
             st.session_state["comparison_requested"] = False
             st.rerun()
+
+
+def result_for_store(
+    optimization: PremiumOptimizationResult,
+    store_id: str,
+) -> PremiumStoreResult:
+    """Return one optimizer result by store ID."""
+
+    return next(result for result in optimization.results if result.store.id == store_id)
+
+
+def build_finalization_receipt(
+    selected_result: PremiumStoreResult,
+    finalization_result,
+    savings_goal_name: str,
+) -> dict[str, int | str]:
+    """Build serializable simulated verification details."""
+
+    usual_store_estimate = (
+        selected_result.net_total_cost_huf
+        + selected_result.savings_vs_usual_store_huf
+    )
+    return {
+        "visited_store_name": selected_result.store.name,
+        "finalized_basket_total_huf": finalization_result.product_total_huf,
+        "usual_store_estimate_huf": usual_store_estimate,
+        "estimated_verified_saving_huf": max(
+            selected_result.savings_vs_usual_store_huf,
+            0,
+        ),
+        "amount_counted_toward_budget_huf": finalization_result.spent_so_far_increase_huf,
+        "remaining_budget_huf": finalization_result.remaining_budget_huf,
+        "savings_goal_name": savings_goal_name,
+    }
 
 
 def render_savings_goal_action(optimization: PremiumOptimizationResult | None) -> None:
