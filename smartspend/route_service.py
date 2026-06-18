@@ -8,7 +8,12 @@ from typing import Callable
 
 import requests
 
-from smartspend.database import DEFAULT_DB_PATH, connect, ensure_demo_database
+from smartspend.database import (
+    DEFAULT_DB_PATH,
+    DEFAULT_ORIGIN_ADDRESS,
+    connect,
+    ensure_demo_database,
+)
 
 GOOGLE_DIRECTIONS_URL = "https://maps.googleapis.com/maps/api/directions/json"
 
@@ -25,7 +30,7 @@ class RouteResult:
 
 def get_route(
     store_id: str,
-    origin: str = "Budapest II",
+    origin: str = DEFAULT_ORIGIN_ADDRESS,
     use_google_maps: bool = False,
     api_key: str | None = None,
     db_path: str = str(DEFAULT_DB_PATH),

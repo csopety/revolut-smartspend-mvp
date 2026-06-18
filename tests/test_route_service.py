@@ -1,9 +1,10 @@
+from inspect import signature
 from pathlib import Path
 
 import pytest
 import requests
 
-from smartspend.database import reset_demo_data
+from smartspend.database import DEFAULT_ORIGIN_ADDRESS, reset_demo_data
 from smartspend.route_service import get_route
 
 
@@ -27,6 +28,12 @@ def test_route_uses_simulated_route_by_default(tmp_path: Path) -> None:
     assert route.route_source == "Simulated"
     assert route.distance_km == 2.2
     assert route.travel_minutes == 9
+
+
+def test_route_default_origin_is_budapest_ii_landmark() -> None:
+    default_origin = signature(get_route).parameters["origin"].default
+
+    assert default_origin == DEFAULT_ORIGIN_ADDRESS
 
 
 def test_route_falls_back_to_simulated_when_no_google_key(tmp_path: Path) -> None:

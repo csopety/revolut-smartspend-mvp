@@ -10,6 +10,7 @@ from smartspend.models import BasketItem, Product, Store
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "smartspend_demo.db"
+DEFAULT_ORIGIN_ADDRESS = "Széll Kálmán tér, Budapest II"
 
 STORE_SEEDS = [
     {
@@ -189,7 +190,8 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 ),
                 include_travel_cost_in_spending INTEGER NOT NULL CHECK (
                     include_travel_cost_in_spending IN (0, 1)
-                )
+                ),
+                origin_address TEXT NOT NULL DEFAULT 'Széll Kálmán tér, Budapest II'
             );
 
             CREATE TABLE IF NOT EXISTS savings_goals (
@@ -231,6 +233,18 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 grocery_spend_huf INTEGER NOT NULL CHECK (grocery_spend_huf >= 0),
                 planned_budget_huf INTEGER NOT NULL CHECK (planned_budget_huf >= 0),
                 transaction_count INTEGER NOT NULL CHECK (transaction_count >= 0),
+                week_1_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (week_1_spend_huf >= 0),
+                week_2_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (week_2_spend_huf >= 0),
+                week_3_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (week_3_spend_huf >= 0),
+                week_4_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (week_4_spend_huf >= 0),
+                lidl_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (lidl_spend_huf >= 0),
+                aldi_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (aldi_spend_huf >= 0),
+                spar_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (spar_spend_huf >= 0),
+                tesco_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (tesco_spend_huf >= 0),
+                highest_purchase_huf INTEGER NOT NULL DEFAULT 0 CHECK (
+                    highest_purchase_huf >= 0
+                ),
+                most_used_store TEXT NOT NULL DEFAULT 'Lidl',
                 notes TEXT NOT NULL
             );
 
@@ -314,6 +328,108 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
             );
             """
         )
+        migrate_database(connection)
+
+
+def migrate_database(connection: sqlite3.Connection) -> None:
+    """Apply safe additive SQLite migrations for existing demo databases."""
+
+    add_missing_column(
+        connection=connection,
+        table_name="user_profile",
+        column_name="origin_address",
+        column_definition=(
+            "TEXT NOT NULL DEFAULT 'Széll Kálmán tér, Budapest II'"
+        ),
+    )
+
+    historical_columns = {
+        "week_1_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (week_1_spend_huf >= 0)",
+        "week_2_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (week_2_spend_huf >= 0)",
+        "week_3_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (week_3_spend_huf >= 0)",
+        "week_4_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (week_4_spend_huf >= 0)",
+        "lidl_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (lidl_spend_huf >= 0)",
+        "aldi_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (aldi_spend_huf >= 0)",
+        "spar_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (spar_spend_huf >= 0)",
+        "tesco_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (tesco_spend_huf >= 0)",
+        "highest_purchase_huf": (
+            "INTEGER NOT NULL DEFAULT 0 CHECK (highest_purchase_huf >= 0)"
+        ),
+        "most_used_store": "TEXT NOT NULL DEFAULT 'Lidl'",
+    }
+    for column_name, column_definition in historical_columns.items():
+        add_missing_column(
+            connection=connection,
+            table_name="historical_monthly_spending",
+            column_name=column_name,
+            column_definition=column_definition,
+        )
+
+
+def add_missing_column(
+    connection: sqlite3.Connection,
+    table_name: str,
+    column_name: str,
+    column_definition: str,
+) -> None:
+    """Add a column only when PRAGMA table_info shows it is missing."""
+
+    existing_columns = {
+        row["name"]
+        for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+    }
+    if column_name not in existing_columns:
+        connection.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"
+        )
+
+
+def update_user_profile(
+    monthly_grocery_budget_huf: int,
+    usual_store_id: str,
+    max_travel_minutes: int,
+    travel_cost_per_km_huf: int,
+    origin_address: str = DEFAULT_ORIGIN_ADDRESS,
+    db_path: Path | str = DEFAULT_DB_PATH,
+) -> None:
+    """Persist user setup fields without changing current spending."""
+
+    if monthly_grocery_budget_huf < 0:
+        raise ValueError("Monthly grocery budget cannot be negative.")
+    if max_travel_minutes < 0:
+        raise ValueError("Maximum travel time cannot be negative.")
+    if travel_cost_per_km_huf < 0:
+        raise ValueError("Travel cost per km cannot be negative.")
+    if not origin_address.strip():
+        raise ValueError("Origin address cannot be empty.")
+
+    ensure_demo_database(db_path)
+    with connect(db_path) as connection:
+        store_exists = connection.execute(
+            "SELECT 1 FROM stores WHERE id = ?",
+            (usual_store_id,),
+        ).fetchone()
+        if store_exists is None:
+            raise ValueError(f"No store found with id '{usual_store_id}'.")
+
+        connection.execute(
+            """
+            UPDATE user_profile
+            SET monthly_grocery_budget_huf = ?,
+                usual_store_id = ?,
+                max_travel_minutes = ?,
+                travel_cost_per_km_huf = ?,
+                origin_address = ?
+            WHERE id = 1
+            """,
+            (
+                monthly_grocery_budget_huf,
+                usual_store_id,
+                max_travel_minutes,
+                travel_cost_per_km_huf,
+                origin_address.strip(),
+            ),
+        )
 
 
 def seed_default_data(db_path: Path | str = DEFAULT_DB_PATH) -> None:
@@ -342,11 +458,13 @@ def seed_default_data(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 usual_store_id,
                 max_travel_minutes,
                 travel_cost_per_km_huf,
-                include_travel_cost_in_spending
+                include_travel_cost_in_spending,
+                origin_address
             )
             VALUES (1, 'Demo User', 'Budapest II', 150000, 62000,
-                    'spar_rozsakert', 18, 120, 0)
-            """
+                    'spar_rozsakert', 18, 120, 0, ?)
+            """,
+            (DEFAULT_ORIGIN_ADDRESS,),
         )
         connection.executemany(
             """
@@ -383,19 +501,121 @@ def seed_default_data(db_path: Path | str = DEFAULT_DB_PATH) -> None:
         )
         connection.executemany(
             """
-            INSERT OR IGNORE INTO historical_monthly_spending (
+            INSERT OR REPLACE INTO historical_monthly_spending (
                 month, grocery_spend_huf, planned_budget_huf,
-                transaction_count, notes
+                transaction_count,
+                week_1_spend_huf, week_2_spend_huf,
+                week_3_spend_huf, week_4_spend_huf,
+                lidl_spend_huf, aldi_spend_huf,
+                spar_spend_huf, tesco_spend_huf,
+                highest_purchase_huf, most_used_store,
+                notes
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                ("2025-12", 132400, 145000, 17, "Holiday cooking, still under plan"),
-                ("2026-01", 124800, 145000, 15, "Lower spend after holidays"),
-                ("2026-02", 138200, 145000, 16, "More home cooking"),
-                ("2026-03", 149600, 150000, 18, "Near budget limit"),
-                ("2026-04", 142300, 150000, 17, "Produce prices slightly lower"),
-                ("2026-05", 156900, 155000, 19, "One larger pantry stock-up"),
+                (
+                    "2025-12",
+                    132400,
+                    145000,
+                    17,
+                    29100,
+                    35600,
+                    30200,
+                    37500,
+                    40500,
+                    35100,
+                    33000,
+                    23800,
+                    15400,
+                    "Lidl",
+                    "Holiday cooking, still under plan",
+                ),
+                (
+                    "2026-01",
+                    124800,
+                    145000,
+                    15,
+                    27600,
+                    31200,
+                    28400,
+                    37600,
+                    37400,
+                    33700,
+                    29900,
+                    23800,
+                    12100,
+                    "Aldi",
+                    "Lower spend after holidays",
+                ),
+                (
+                    "2026-02",
+                    138200,
+                    145000,
+                    16,
+                    30400,
+                    37300,
+                    31500,
+                    39000,
+                    42800,
+                    36000,
+                    33500,
+                    25900,
+                    14600,
+                    "Lidl",
+                    "More home cooking",
+                ),
+                (
+                    "2026-03",
+                    149600,
+                    150000,
+                    18,
+                    32800,
+                    40900,
+                    34100,
+                    41800,
+                    45100,
+                    39200,
+                    37400,
+                    27900,
+                    16800,
+                    "SPAR",
+                    "Near budget limit",
+                ),
+                (
+                    "2026-04",
+                    142300,
+                    150000,
+                    17,
+                    31600,
+                    38300,
+                    32200,
+                    40200,
+                    43100,
+                    38400,
+                    34300,
+                    26500,
+                    15800,
+                    "Lidl",
+                    "Produce prices slightly lower",
+                ),
+                (
+                    "2026-05",
+                    156900,
+                    155000,
+                    19,
+                    35200,
+                    42900,
+                    36700,
+                    42100,
+                    48500,
+                    40600,
+                    38600,
+                    29200,
+                    18400,
+                    "Lidl",
+                    "One larger pantry stock-up",
+                ),
             ],
         )
 
@@ -422,6 +642,16 @@ def ensure_demo_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
         history_count = connection.execute(
             "SELECT COUNT(*) FROM historical_monthly_spending"
         ).fetchone()[0]
+        enriched_history_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM historical_monthly_spending
+            WHERE week_1_spend_huf > 0
+              AND lidl_spend_huf > 0
+              AND highest_purchase_huf > 0
+              AND most_used_store <> ''
+            """
+        ).fetchone()[0]
         required_goal_count = connection.execute(
             """
             SELECT COUNT(*)
@@ -436,6 +666,7 @@ def ensure_demo_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
         or store_count == 0
         or price_count < expected_price_count
         or history_count < 6
+        or enriched_history_count < 6
         or required_goal_count < 3
     ):
         seed_default_data(db_path)
