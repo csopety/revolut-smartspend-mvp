@@ -22,6 +22,7 @@ All banking, grocery, transaction, savings, route, historical, and pilot KPI dat
 - Current-month on-track prediction using current and historical demo data.
 - Spending insights charts and simulated pilot KPI dashboard.
 - Trust/audit drawer explaining data, formulas, guardrails, and simulation boundaries.
+- Changeable starting location in Setup with explicit OpenStreetMap Nominatim geocoding.
 - Optional OpenRouteService walking/car route lookup with safe simulated fallback.
 - Agentic-style explanation that explains calculated results only.
 
@@ -54,6 +55,7 @@ The suite covers database seeding, search, basket behavior, optimizer logic, war
 
 - `app.py`: Streamlit phone-style UI and screen navigation.
 - `smartspend/database.py`: SQLite initialization, migrations, seed data, and profile persistence.
+- `smartspend/geocoding.py`: OpenStreetMap Nominatim lookup for explicitly submitted starting locations.
 - `smartspend/product_search.py`: deterministic search over names, aliases, prefixes, partials, and tags.
 - `smartspend/basket.py`: basket add/edit/remove/clear logic.
 - `smartspend/optimizer.py`: rule-based recommendation engine.
@@ -115,6 +117,18 @@ History → Pilot proof shows simulated adoption, repeat usage, average saving p
 
 Setup and Pilot proof include a trust/audit drawer with data used, data not used, formulas, guardrails, and the simulated-data disclaimer. It explicitly states there is no real banking connection, Revolut account, payment, retailer API, money movement, or guaranteed-cheapest claim.
 
+## Starting Location And Routes
+
+In Setup, the user can change the starting location used for live route estimates. The user types a starting location and clicks `Find coordinates`; the app then uses OpenStreetMap Nominatim to convert that typed location into latitude/longitude coordinates. Geocoding does not run on every keystroke.
+
+The saved origin address and coordinates are stored locally in SQLite. If geocoding fails, the app keeps the previous valid starting coordinates. If no valid origin exists, it falls back to the default Széll Kálmán tér origin. The user can also reset the origin to Széll Kálmán tér from Setup.
+
+OpenRouteService uses the saved coordinates for walking and car route estimates when live routing is enabled and an API key is available. Public transport remains simulated in this MVP. If live routing is disabled, no key exists, the selected travel mode is public transport, or the route API fails, SmartSpend uses the seeded simulated route distance/time.
+
+Grocery prices, budgets, transactions, savings goals, and historical spending remain simulated regardless of geocoding or live routing. OpenStreetMap Nominatim does not use an API key. The OpenRouteService API key must stay in `.env` or another local secret source and must never be committed.
+
+Attribution: geocoding by OpenStreetMap Nominatim. Route estimates by OpenRouteService when live routing is enabled.
+
 ## Optional OpenRouteService
 
 The app works without a live route API. If `OPENROUTESERVICE_API_KEY` is available through the environment, `.env`, or Streamlit secrets, the app can use OpenRouteService for walking and car route estimates when enabled in Setup. `ORS_API_KEY` is also supported as a fallback variable name. Public transport remains simulated in this MVP. If no key exists or the API fails, the app falls back to simulated routes. OpenRouteService only affects distance, travel time, and route source.
@@ -127,7 +141,7 @@ Codex was used to implement the MVP in phases: data and persistence, search and 
 
 - Simulated prices may not match real stores.
 - Store availability and promotions are invented for demo purposes.
-- Route data is simulated unless OpenRouteService is enabled and available for walking or car routes.
+- Route data is simulated unless OpenRouteService is enabled and available for walking or car routes; public transport routes remain simulated.
 - The app has no authentication or production privacy model.
 - The app is not financial advice.
 - There is no real Revolut integration.

@@ -174,6 +174,7 @@ def get_origin_coordinates(
 ) -> tuple[float, float]:
     """Return origin coordinates in OpenRouteService longitude/latitude order."""
 
+    _ = origin
     ensure_demo_database(db_path)
     with connect(db_path) as connection:
         row = connection.execute(
@@ -187,12 +188,16 @@ def get_origin_coordinates(
     if row is None:
         return (DEFAULT_ORIGIN_LONGITUDE, DEFAULT_ORIGIN_LATITUDE)
 
-    origin_text = origin.strip().lower()
-    saved_origin_text = str(row["origin_address"]).strip().lower()
-    if origin_text in {"", saved_origin_text, DEFAULT_ORIGIN_ADDRESS.lower()}:
-        return (float(row["origin_longitude"]), float(row["origin_latitude"]))
+    try:
+        origin_latitude = float(row["origin_latitude"])
+        origin_longitude = float(row["origin_longitude"])
+    except (TypeError, ValueError):
+        return (DEFAULT_ORIGIN_LONGITUDE, DEFAULT_ORIGIN_LATITUDE)
 
-    return (DEFAULT_ORIGIN_LONGITUDE, DEFAULT_ORIGIN_LATITUDE)
+    if not -90 <= origin_latitude <= 90 or not -180 <= origin_longitude <= 180:
+        return (DEFAULT_ORIGIN_LONGITUDE, DEFAULT_ORIGIN_LATITUDE)
+
+    return (origin_longitude, origin_latitude)
 
 
 def get_store_coordinates(

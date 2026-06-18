@@ -6,8 +6,10 @@ from smartspend.database import (
     DEFAULT_ORIGIN_LATITUDE,
     DEFAULT_ORIGIN_LONGITUDE,
     ensure_demo_database,
+    get_user_profile,
     initialize_database,
     reset_demo_data,
+    update_origin,
     update_user_profile,
 )
 
@@ -211,6 +213,26 @@ def test_user_profile_default_origin_is_seeded(tmp_path: Path) -> None:
     assert row["origin_address"] == DEFAULT_ORIGIN_ADDRESS
     assert row["origin_latitude"] == DEFAULT_ORIGIN_LATITUDE
     assert row["origin_longitude"] == DEFAULT_ORIGIN_LONGITUDE
+
+
+def test_database_origin_update_persists_values(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+
+    reset_demo_data(db_path)
+    profile = update_origin(
+        address="Margit korut 2, Budapest II",
+        latitude=47.5112,
+        longitude=19.0345,
+        db_path=db_path,
+    )
+    loaded_profile = get_user_profile(db_path)
+
+    assert profile["origin_address"] == "Margit korut 2, Budapest II"
+    assert profile["origin_latitude"] == 47.5112
+    assert profile["origin_longitude"] == 19.0345
+    assert loaded_profile["origin_address"] == "Margit korut 2, Budapest II"
+    assert loaded_profile["origin_latitude"] == 47.5112
+    assert loaded_profile["origin_longitude"] == 19.0345
 
 
 def test_stores_have_seeded_latitude_and_longitude(tmp_path: Path) -> None:

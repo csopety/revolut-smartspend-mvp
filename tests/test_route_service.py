@@ -1,10 +1,17 @@
 from inspect import signature
 from pathlib import Path
+import sqlite3
 
 import pytest
 import requests
 
-from smartspend.database import DEFAULT_ORIGIN_ADDRESS, reset_demo_data
+from smartspend.database import (
+    DEFAULT_ORIGIN_ADDRESS,
+    DEFAULT_ORIGIN_LATITUDE,
+    DEFAULT_ORIGIN_LONGITUDE,
+    reset_demo_data,
+    update_origin,
+)
 from smartspend.route_service import (
     ROUTE_SOURCE_OPENROUTESERVICE,
     get_openrouteservice_route,
@@ -94,7 +101,7 @@ def test_walking_route_can_use_openrouteservice_when_response_works(
         assert kwargs["headers"]["Authorization"] == "demo-token"
         assert kwargs["headers"]["Content-Type"] == "application/json; charset=utf-8"
         assert kwargs["headers"]["Accept"] == "application/json"
-        assert kwargs["json"]["coordinates"][0] == [19.0244, 47.5071]
+        assert kwargs["json"]["coordinates"][0] == [19.024, 47.5076]
         assert kwargs["json"]["coordinates"][1] == [
             19.021628036706577,
             47.56307158883334,
@@ -116,6 +123,68 @@ def test_walking_route_can_use_openrouteservice_when_response_works(
     assert route.travel_minutes == 16
 
 
+def test_route_service_uses_saved_origin_coordinates(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+    update_origin(
+        address="Margit korut 2, Budapest II",
+        latitude=47.5112,
+        longitude=19.0345,
+        db_path=db_path,
+    )
+
+    def successful_request(*args: object, **kwargs: object) -> FakeRouteResponse:
+        assert kwargs["json"]["coordinates"][0] == [19.0345, 47.5112]
+        assert kwargs["json"]["coordinates"][1] == [
+            19.021628036706577,
+            47.56307158883334,
+        ]
+        return FakeRouteResponse(successful_ors_payload())
+
+    route = get_route(
+        "tesco_becsi",
+        origin="Different typed address",
+        use_live_routes=True,
+        transport_mode="walking",
+        api_key="demo-token",
+        db_path=str(db_path),
+        request_get=successful_request,
+    )
+
+    assert route.route_source == ROUTE_SOURCE_OPENROUTESERVICE
+
+
+def test_missing_origin_coordinates_fall_back_to_default_origin(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("DELETE FROM user_profile")
+
+    def successful_request(*args: object, **kwargs: object) -> FakeRouteResponse:
+        assert kwargs["json"]["coordinates"][0] == [
+            DEFAULT_ORIGIN_LONGITUDE,
+            DEFAULT_ORIGIN_LATITUDE,
+        ]
+        assert kwargs["json"]["coordinates"][1] == [
+            18.962848219071322,
+            47.54510653574783,
+        ]
+        return FakeRouteResponse(successful_ors_payload())
+
+    route = get_route(
+        "lidl_huvosvolgyi",
+        use_live_routes=True,
+        transport_mode="car",
+        api_key="demo-token",
+        db_path=str(db_path),
+        request_get=successful_request,
+    )
+
+    assert route.route_source == ROUTE_SOURCE_OPENROUTESERVICE
+
+
 def test_car_route_can_use_openrouteservice_with_live_route_flag(
     tmp_path: Path,
 ) -> None:
@@ -124,7 +193,7 @@ def test_car_route_can_use_openrouteservice_with_live_route_flag(
 
     def successful_request(*args: object, **kwargs: object) -> FakeRouteResponse:
         assert str(args[0]).endswith("/driving-car/json")
-        assert kwargs["json"]["coordinates"][0] == [19.0244, 47.5071]
+        assert kwargs["json"]["coordinates"][0] == [19.024, 47.5076]
         assert kwargs["json"]["coordinates"][1] == [
             18.962848219071322,
             47.54510653574783,

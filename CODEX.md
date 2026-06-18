@@ -12,6 +12,7 @@ Rules:
 - Use OpenStreetMap Nominatim only for geocoding user-entered starting locations.
 - Do not geocode on every keystroke.
 - Only geocode when the user clicks a button such as “Find coordinates”.
+- Do not call Nominatim from basket planning, store comparison, app startup, or profile rendering.
 - Respect Nominatim usage policy:
   - maximum 1 request per second
   - use a valid identifying User-Agent
@@ -21,8 +22,11 @@ Rules:
 - Default origin remains Széll Kálmán tér, Budapest II.
 - If geocoding fails, keep the previous valid coordinates.
 - If no previous valid coordinates exist, fall back to Széll Kálmán tér.
+- Geocoding and routing are separate: Nominatim only converts an address to coordinates; OpenRouteService only calculates route distance/time from coordinates.
 - OpenRouteService must receive coordinates in [longitude, latitude] order.
 - Do not use geocoding for store coordinates; store coordinates are seeded manually.
+- Nominatim requires no API key; do not invent, request, store, log, or display one.
+- Show attribution text for OpenStreetMap Nominatim and OpenRouteService wherever route/geocoding controls are surfaced.
 - Do not expose any OpenRouteService API key.
 - Do not place secrets in code, README, tests, UI, or logs.
 
@@ -34,6 +38,8 @@ Important:
 - Never hardcode API keys.
 - Never print API keys.
 - Never commit `.env` or `.streamlit/secrets.toml`.
+- Never put route API keys in Streamlit session state, exceptions, logs, documentation, tests, or UI.
+- Never show masked API key text; show only boolean-style status such as key detected or fallback active.
 - Use environment variable `OPENROUTESERVICE_API_KEY`.
 - Optional fallback names may include `ORS_API_KEY`.
 - Use `.env.example` only with placeholder values.
@@ -41,6 +47,7 @@ Important:
 - If API call fails, use simulated route fallback.
 - If travel mode is public transport, use simulated route fallback unless a real public-transport API is implemented.
 - OpenRouteService may be used for walking and car routes.
+- OpenRouteService must use the saved user_profile origin coordinates and seeded store coordinates.
 - OpenRouteService must affect only distance, travel time, and route source.
 - OpenRouteService must not affect grocery prices, budgets, transactions, historical data, savings goals, or optimizer formulas except through route distance/time inputs.
 
@@ -48,6 +55,7 @@ Important:
 
 - `app.py`: premium dark phone-style Streamlit UI with Home, Plan, History, and Setup screens.
 - `smartspend/database.py`: local SQLite persistence at `data/smartspend_demo.db`, additive migrations, seeded demo data, profile update support.
+- `smartspend/geocoding.py`: explicit OpenStreetMap Nominatim geocoding for user-submitted starting locations.
 - `smartspend/product_search.py`: search over product names, display names, aliases, prefixes, partial strings, and tags.
 - `smartspend/basket.py`: basket add/edit/remove/clear behavior.
 - `smartspend/route_service.py`: optional OpenRouteService walking/car route lookup with simulated fallback.
@@ -69,6 +77,7 @@ Important:
 - 75+ products with English and Hungarian aliases.
 - Typeahead product search with no visible category dropdown.
 - Persistent setup/profile settings: budget, usual store, max travel time, travel cost per km, and origin/address.
+- Changeable starting location: explicit Nominatim geocoding, saved coordinates, and reset to Széll Kálmán tér.
 - Investor demo scenario that loads realistic settings and basket without finalizing a purchase.
 - Recommendation engine with product total, unavailable items, confidence, travel monetary cost, travel-time cost, net total, budget impact, savings, max-travel eligibility, and route source.
 - Optimization modes: cheapest basket, lowest total cost including travel, best budget fit, and balanced recommendation.

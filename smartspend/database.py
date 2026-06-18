@@ -11,8 +11,8 @@ from smartspend.models import BasketItem, Product, Store
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "smartspend_demo.db"
 DEFAULT_ORIGIN_ADDRESS = "Széll Kálmán tér, Budapest II"
-DEFAULT_ORIGIN_LATITUDE = 47.5071
-DEFAULT_ORIGIN_LONGITUDE = 19.0244
+DEFAULT_ORIGIN_LATITUDE = 47.5076
+DEFAULT_ORIGIN_LONGITUDE = 19.0240
 
 STORE_SEEDS = [
     {
@@ -204,10 +204,10 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                     include_travel_cost_in_spending IN (0, 1)
                 ),
                 origin_address TEXT NOT NULL DEFAULT 'Széll Kálmán tér, Budapest II',
-                origin_latitude REAL NOT NULL DEFAULT 47.5071 CHECK (
+                origin_latitude REAL NOT NULL DEFAULT 47.5076 CHECK (
                     origin_latitude BETWEEN -90 AND 90
                 ),
-                origin_longitude REAL NOT NULL DEFAULT 19.0244 CHECK (
+                origin_longitude REAL NOT NULL DEFAULT 19.0240 CHECK (
                     origin_longitude BETWEEN -180 AND 180
                 )
             );
@@ -376,13 +376,13 @@ def migrate_database(connection: sqlite3.Connection) -> None:
         connection=connection,
         table_name="user_profile",
         column_name="origin_latitude",
-        column_definition="REAL NOT NULL DEFAULT 47.5071",
+        column_definition="REAL NOT NULL DEFAULT 47.5076",
     )
     add_missing_column(
         connection=connection,
         table_name="user_profile",
         column_name="origin_longitude",
-        column_definition="REAL NOT NULL DEFAULT 19.0244",
+        column_definition="REAL NOT NULL DEFAULT 19.0240",
     )
 
     historical_columns = {
@@ -511,6 +511,84 @@ def add_missing_column(
         )
 
 
+def get_user_profile(db_path: Path | str = DEFAULT_DB_PATH) -> dict[str, object]:
+    """Return the persisted demo user profile."""
+
+    ensure_demo_database(db_path)
+    with connect(db_path) as connection:
+        row = connection.execute(
+            """
+            SELECT id,
+                   display_name,
+                   district,
+                   monthly_grocery_budget_huf,
+                   already_spent_current_month_huf,
+                   usual_store_id,
+                   max_travel_minutes,
+                   travel_cost_per_km_huf,
+                   include_travel_cost_in_spending,
+                   origin_address,
+                   origin_latitude,
+                   origin_longitude
+            FROM user_profile
+            WHERE id = 1
+            """
+        ).fetchone()
+
+    if row is None:
+        raise ValueError("User profile is missing.")
+
+    return dict(row)
+
+
+def validate_origin(
+    address: str,
+    latitude: float,
+    longitude: float,
+) -> tuple[str, float, float]:
+    """Validate and normalize origin fields."""
+
+    normalized_address = address.strip()
+    if not normalized_address:
+        raise ValueError("Origin address cannot be empty.")
+    if not -90 <= latitude <= 90:
+        raise ValueError("Origin latitude must be between -90 and 90.")
+    if not -180 <= longitude <= 180:
+        raise ValueError("Origin longitude must be between -180 and 180.")
+
+    return normalized_address, latitude, longitude
+
+
+def update_origin(
+    address: str,
+    latitude: float,
+    longitude: float,
+    db_path: Path | str = DEFAULT_DB_PATH,
+) -> dict[str, object]:
+    """Persist a geocoded starting location without changing spending."""
+
+    normalized_address, latitude, longitude = validate_origin(
+        address=address,
+        latitude=latitude,
+        longitude=longitude,
+    )
+
+    ensure_demo_database(db_path)
+    with connect(db_path) as connection:
+        connection.execute(
+            """
+            UPDATE user_profile
+            SET origin_address = ?,
+                origin_latitude = ?,
+                origin_longitude = ?
+            WHERE id = 1
+            """,
+            (normalized_address, latitude, longitude),
+        )
+
+    return get_user_profile(db_path)
+
+
 def update_user_profile(
     monthly_grocery_budget_huf: int,
     usual_store_id: str,
@@ -529,12 +607,11 @@ def update_user_profile(
         raise ValueError("Maximum travel time cannot be negative.")
     if travel_cost_per_km_huf < 0:
         raise ValueError("Travel cost per km cannot be negative.")
-    if not origin_address.strip():
-        raise ValueError("Origin address cannot be empty.")
-    if not -90 <= origin_latitude <= 90:
-        raise ValueError("Origin latitude must be between -90 and 90.")
-    if not -180 <= origin_longitude <= 180:
-        raise ValueError("Origin longitude must be between -180 and 180.")
+    normalized_origin_address, origin_latitude, origin_longitude = validate_origin(
+        address=origin_address,
+        latitude=origin_latitude,
+        longitude=origin_longitude,
+    )
 
     ensure_demo_database(db_path)
     with connect(db_path) as connection:
@@ -562,7 +639,7 @@ def update_user_profile(
                 usual_store_id,
                 max_travel_minutes,
                 travel_cost_per_km_huf,
-                origin_address.strip(),
+                normalized_origin_address,
                 origin_latitude,
                 origin_longitude,
             ),

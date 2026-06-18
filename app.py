@@ -14,9 +14,12 @@ from smartspend.basket import Basket, BasketLine, add_product, edit_quantity, re
 from smartspend.database import (
     DEFAULT_DB_PATH,
     DEFAULT_ORIGIN_ADDRESS,
+    DEFAULT_ORIGIN_LATITUDE,
+    DEFAULT_ORIGIN_LONGITUDE,
     connect,
     ensure_demo_database,
     reset_demo_data,
+    update_origin,
     update_user_profile,
 )
 from smartspend.favorites import (
@@ -28,6 +31,7 @@ from smartspend.favorites import (
     save_current_basket_as_favorite,
 )
 from smartspend.formatting import format_huf
+from smartspend.geocoding import geocode_origin_address
 from smartspend.insights import (
     calculate_current_month_track_prediction,
     calculate_spending_insights,
@@ -119,6 +123,8 @@ def initialize_ui_state() -> None:
     st.session_state.setdefault("comparison_requested", False)
     st.session_state.setdefault("last_success_message", "")
     st.session_state.setdefault("last_finalization_receipt", None)
+    st.session_state.setdefault("last_origin_display_name", "")
+    st.session_state.setdefault("last_origin_source", "")
 
 
 def apply_page_styles() -> None:
@@ -419,6 +425,18 @@ def build_settings(profile: dict[str, int | str]) -> dict[str, int | str | bool]
         "use_live_routes": bool(st.session_state["use_live_routes"]),
         "consent_enabled": bool(st.session_state["consent_enabled"]),
     }
+
+
+def profile_origin_latitude(profile: dict[str, int | str]) -> float:
+    """Return the persisted origin latitude from a profile row."""
+
+    return float(profile.get("origin_latitude") or DEFAULT_ORIGIN_LATITUDE)
+
+
+def profile_origin_longitude(profile: dict[str, int | str]) -> float:
+    """Return the persisted origin longitude from a profile row."""
+
+    return float(profile.get("origin_longitude") or DEFAULT_ORIGIN_LONGITUDE)
 
 
 def render_home_screen(
@@ -1302,6 +1320,74 @@ def calculate_average_saving_per_finalized_shop() -> int:
     return round(sum(savings) / len(savings))
 
 
+def render_starting_location_controls(profile: dict[str, int | str]) -> None:
+    """Render saved origin details and explicit geocoding controls."""
+
+    saved_address = str(profile.get("origin_address") or DEFAULT_ORIGIN_ADDRESS)
+    saved_latitude = profile_origin_latitude(profile)
+    saved_longitude = profile_origin_longitude(profile)
+    source = st.session_state.get("last_origin_source") or "Saved profile coordinates"
+
+    st.markdown(
+        f"""
+        <div class="glass-card">
+            <div class="smart-kicker">Starting location</div>
+            <h3>{escape(saved_address)}</h3>
+            <div class="metric-grid">
+                <div class="mini-metric"><div class="mini-label">Latitude</div><div class="mini-value">{saved_latitude:.6f}</div></div>
+                <div class="mini-metric"><div class="mini-label">Longitude</div><div class="mini-value">{saved_longitude:.6f}</div></div>
+                <div class="mini-metric"><div class="mini-label">Source</div><div class="mini-value">{escape(str(source))}</div></div>
+            </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.session_state.get("last_origin_display_name"):
+        st.caption(f"Matched address: {st.session_state['last_origin_display_name']}")
+
+    starting_location = st.text_input(
+        "Starting location",
+        value=saved_address,
+        key="starting_location_input",
+    )
+    find_col, reset_col = st.columns(2)
+    if find_col.button("Find coordinates", use_container_width=True):
+        try:
+            result = geocode_origin_address(starting_location)
+            update_origin(
+                address=result.address,
+                latitude=result.latitude,
+                longitude=result.longitude,
+            )
+        except ValueError as error:
+            st.error(str(error))
+        else:
+            st.session_state["last_origin_display_name"] = result.display_name
+            st.session_state["last_origin_source"] = result.source
+            st.session_state["last_success_message"] = (
+                "Starting location updated from OpenStreetMap."
+            )
+            st.rerun()
+
+    if reset_col.button("Reset to Széll Kálmán tér", use_container_width=True):
+        update_origin(
+            address=DEFAULT_ORIGIN_ADDRESS,
+            latitude=DEFAULT_ORIGIN_LATITUDE,
+            longitude=DEFAULT_ORIGIN_LONGITUDE,
+        )
+        st.session_state["last_origin_display_name"] = DEFAULT_ORIGIN_ADDRESS
+        st.session_state["last_origin_source"] = "Default demo origin"
+        st.session_state["last_success_message"] = (
+            "Starting location reset to Széll Kálmán tér."
+        )
+        st.rerun()
+
+    st.caption(
+        "Geocoding by OpenStreetMap Nominatim. Route estimates by OpenRouteService when live routing is enabled."
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_setup_screen(profile: dict[str, int | str]) -> None:
     """Render persistent settings and trust controls."""
 
@@ -1325,11 +1411,9 @@ def render_setup_screen(profile: dict[str, int | str]) -> None:
         format_func=store_name_for_id,
         index=usual_store_options.index(current_store_id),
     )
-    origin_address = st.text_input(
-        "Origin/address",
-        value=str(profile.get("origin_address") or DEFAULT_ORIGIN_ADDRESS),
-    )
     st.markdown("</div>", unsafe_allow_html=True)
+
+    render_starting_location_controls(profile)
 
     st.markdown('<div class="glass-card"><div class="smart-kicker">Travel and recommendation</div>', unsafe_allow_html=True)
     max_travel_minutes = st.number_input(
@@ -1384,7 +1468,9 @@ def render_setup_screen(profile: dict[str, int | str]) -> None:
                 usual_store_id=str(usual_store_id),
                 max_travel_minutes=int(max_travel_minutes),
                 travel_cost_per_km_huf=int(travel_cost_per_km_huf),
-                origin_address=str(origin_address),
+                origin_address=str(profile.get("origin_address") or DEFAULT_ORIGIN_ADDRESS),
+                origin_latitude=profile_origin_latitude(profile),
+                origin_longitude=profile_origin_longitude(profile),
             )
         except ValueError as error:
             st.error(str(error))
@@ -1501,7 +1587,7 @@ def load_user_profile() -> dict[str, int | str]:
             """
             SELECT monthly_grocery_budget_huf, already_spent_current_month_huf,
                    usual_store_id, max_travel_minutes, travel_cost_per_km_huf,
-                   origin_address
+                   origin_address, origin_latitude, origin_longitude
             FROM user_profile
             WHERE id = 1
             """
