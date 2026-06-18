@@ -696,6 +696,8 @@ def build_recommendation(
             store.id,
             origin=str(settings["origin_address"]),
             use_google_maps=bool(settings["use_google_maps"]),
+            use_openrouteservice=bool(settings["use_google_maps"]),
+            transport_mode=str(settings["transport_mode"]),
         )
         for store in stores
     }
@@ -1369,9 +1371,9 @@ def render_setup_screen(profile: dict[str, int | str]) -> None:
         value=bool(st.session_state["consent_enabled"]),
     )
     st.session_state["use_google_maps"] = st.checkbox(
-        "Use Google Maps if configured",
+        "Use live routing via OpenRouteService if configured",
         value=bool(st.session_state["use_google_maps"]),
-        help="The app falls back to simulated routes if no key exists or the API fails.",
+        help="Reads OPENROUTESERVICE_API_KEY or ORS_API_KEY from the environment and falls back to simulated routes if unavailable.",
     )
     st.markdown("</div>", unsafe_allow_html=True)
 

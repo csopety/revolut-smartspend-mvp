@@ -5,10 +5,14 @@ import pytest
 import requests
 
 from smartspend.database import DEFAULT_ORIGIN_ADDRESS, reset_demo_data
-from smartspend.route_service import get_route
+from smartspend.route_service import (
+    ROUTE_SOURCE_OPENROUTESERVICE,
+    get_openrouteservice_route,
+    get_route,
+)
 
 
-class FakeGoogleResponse:
+class FakeRouteResponse:
     def __init__(self, payload: dict[str, object]) -> None:
         self.payload = payload
 
@@ -17,6 +21,22 @@ class FakeGoogleResponse:
 
     def json(self) -> dict[str, object]:
         return self.payload
+
+
+def successful_ors_payload(
+    distance_meters: int = 4200,
+    duration_seconds: int = 960,
+) -> dict[str, object]:
+    return {
+        "routes": [
+            {
+                "summary": {
+                    "distance": distance_meters,
+                    "duration": duration_seconds,
+                }
+            }
+        ]
+    }
 
 
 def test_route_uses_simulated_route_by_default(tmp_path: Path) -> None:
@@ -36,15 +56,24 @@ def test_route_default_origin_is_budapest_ii_landmark() -> None:
     assert default_origin == DEFAULT_ORIGIN_ADDRESS
 
 
-def test_route_falls_back_to_simulated_when_no_google_key(tmp_path: Path) -> None:
+def test_route_falls_back_to_simulated_when_no_openrouteservice_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     db_path = tmp_path / "smartspend_demo.db"
     reset_demo_data(db_path)
+    monkeypatch.delenv("OPENROUTESERVICE_API_KEY", raising=False)
+    monkeypatch.delenv("ORS_API_KEY", raising=False)
+
+    def unexpected_request(*args: object, **kwargs: object) -> object:
+        raise AssertionError("Route API should not be called without a key.")
 
     route = get_route(
         "lidl_huvosvolgyi",
-        use_google_maps=True,
+        use_openrouteservice=True,
         api_key=None,
         db_path=str(db_path),
+        request_get=unexpected_request,
     )
 
     assert route.route_source == "Simulated"
@@ -52,19 +81,73 @@ def test_route_falls_back_to_simulated_when_no_google_key(tmp_path: Path) -> Non
     assert route.travel_minutes == 14
 
 
-def test_route_falls_back_to_simulated_on_google_failure(tmp_path: Path) -> None:
+def test_walking_route_can_use_openrouteservice_when_response_works(
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "smartspend_demo.db"
     reset_demo_data(db_path)
 
-    def failing_request(*args: object, **kwargs: object) -> object:
-        raise requests.RequestException("network unavailable")
+    def successful_request(*args: object, **kwargs: object) -> FakeRouteResponse:
+        url = str(args[0])
+        assert url.endswith("/foot-walking/json")
+        assert kwargs["headers"] == {"Authorization": "demo-token"}
+        assert kwargs["json"]["coordinates"][0] == [19.0244, 47.5071]
+        assert kwargs["json"]["coordinates"][1] == [19.0371, 47.5404]
+        assert kwargs["timeout"] == 8
+        return FakeRouteResponse(successful_ors_payload())
+
+    route = get_route(
+        "tesco_becsi",
+        use_openrouteservice=True,
+        transport_mode="walking",
+        api_key="demo-token",
+        db_path=str(db_path),
+        request_get=successful_request,
+    )
+
+    assert route.route_source == ROUTE_SOURCE_OPENROUTESERVICE
+    assert route.distance_km == 4.2
+    assert route.travel_minutes == 16
+
+
+def test_car_route_can_use_openrouteservice_with_legacy_google_flag(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+
+    def successful_request(*args: object, **kwargs: object) -> FakeRouteResponse:
+        assert str(args[0]).endswith("/driving-car/json")
+        return FakeRouteResponse(successful_ors_payload(3500, 780))
+
+    route = get_route(
+        "lidl_huvosvolgyi",
+        use_google_maps=True,
+        transport_mode="car",
+        api_key="demo-token",
+        db_path=str(db_path),
+        request_get=successful_request,
+    )
+
+    assert route.route_source == ROUTE_SOURCE_OPENROUTESERVICE
+    assert route.distance_km == 3.5
+    assert route.travel_minutes == 13
+
+
+def test_public_transport_falls_back_to_simulated(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+
+    def unexpected_request(*args: object, **kwargs: object) -> object:
+        raise AssertionError("Public transport should not call OpenRouteService.")
 
     route = get_route(
         "spar_rozsakert",
-        use_google_maps=True,
-        api_key="fake-key",
+        use_openrouteservice=True,
+        transport_mode="public_transport",
+        api_key="demo-token",
         db_path=str(db_path),
-        request_get=failing_request,
+        request_get=unexpected_request,
     )
 
     assert route.route_source == "Simulated"
@@ -72,19 +155,22 @@ def test_route_falls_back_to_simulated_on_google_failure(tmp_path: Path) -> None
     assert route.travel_minutes == 7
 
 
-def test_route_falls_back_to_simulated_on_google_error_status(tmp_path: Path) -> None:
+def test_route_falls_back_to_simulated_on_openrouteservice_failure(
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "smartspend_demo.db"
     reset_demo_data(db_path)
 
-    def error_status_request(*args: object, **kwargs: object) -> FakeGoogleResponse:
-        return FakeGoogleResponse({"status": "REQUEST_DENIED", "routes": []})
+    def failing_request(*args: object, **kwargs: object) -> object:
+        raise requests.RequestException("network unavailable")
 
     route = get_route(
         "aldi_mammut",
-        use_google_maps=True,
-        api_key="fake-key",
+        use_openrouteservice=True,
+        transport_mode="walking",
+        api_key="demo-token",
         db_path=str(db_path),
-        request_get=error_status_request,
+        request_get=failing_request,
     )
 
     assert route.route_source == "Simulated"
@@ -92,38 +178,79 @@ def test_route_falls_back_to_simulated_on_google_error_status(tmp_path: Path) ->
     assert route.travel_minutes == 9
 
 
-def test_route_can_use_google_maps_when_key_and_response_work(tmp_path: Path) -> None:
+def test_route_falls_back_to_simulated_on_bad_openrouteservice_payload(
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "smartspend_demo.db"
     reset_demo_data(db_path)
 
-    def successful_request(*args: object, **kwargs: object) -> FakeGoogleResponse:
-        return FakeGoogleResponse(
-            {
-                "status": "OK",
-                "routes": [
-                    {
-                        "legs": [
-                            {
-                                "distance": {"value": 4200},
-                                "duration": {"value": 960},
-                            }
-                        ]
-                    }
-                ],
-            }
-        )
+    def bad_payload_request(*args: object, **kwargs: object) -> FakeRouteResponse:
+        return FakeRouteResponse({"routes": []})
 
     route = get_route(
+        "aldi_mammut",
+        use_openrouteservice=True,
+        transport_mode="car",
+        api_key="demo-token",
+        db_path=str(db_path),
+        request_get=bad_payload_request,
+    )
+
+    assert route.route_source == "Simulated"
+
+
+def test_openrouteservice_exception_message_does_not_include_secret(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+    token_value = "sentinel-token-value"
+
+    def failing_request(*args: object, **kwargs: object) -> object:
+        raise RuntimeError(f"upstream rejected {token_value}")
+
+    with pytest.raises(ValueError) as error:
+        get_openrouteservice_route(
+            "tesco_becsi",
+            origin=DEFAULT_ORIGIN_ADDRESS,
+            transport_mode="walking",
+            api_key=token_value,
+            db_path=str(db_path),
+            request_get=failing_request,
+        )
+
+    assert token_value not in str(error.value)
+
+
+def test_openrouteservice_route_results_are_cached(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+    call_count = 0
+
+    def successful_request(*args: object, **kwargs: object) -> FakeRouteResponse:
+        nonlocal call_count
+        call_count += 1
+        return FakeRouteResponse(successful_ors_payload())
+
+    first_route = get_route(
         "tesco_becsi",
-        use_google_maps=True,
-        api_key="fake-key",
+        use_openrouteservice=True,
+        transport_mode="walking",
+        api_key="demo-token",
+        db_path=str(db_path),
+        request_get=successful_request,
+    )
+    second_route = get_route(
+        "tesco_becsi",
+        use_openrouteservice=True,
+        transport_mode="walking",
+        api_key="demo-token",
         db_path=str(db_path),
         request_get=successful_request,
     )
 
-    assert route.route_source == "Google Maps"
-    assert route.distance_km == 4.2
-    assert route.travel_minutes == 16
+    assert first_route == second_route
+    assert call_count == 1
 
 
 def test_route_rejects_unknown_store(tmp_path: Path) -> None:

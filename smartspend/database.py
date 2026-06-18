@@ -285,7 +285,7 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 ),
                 remaining_budget_huf INTEGER NOT NULL,
                 route_source TEXT NOT NULL CHECK (
-                    route_source IN ('Simulated', 'Google Maps')
+                    route_source IN ('Simulated', 'Google Maps', 'OpenRouteService')
                 ),
                 simulated_notice TEXT NOT NULL
             );
@@ -406,6 +406,88 @@ def migrate_database(connection: sqlite3.Connection) -> None:
             column_name=column_name,
             column_definition=column_definition,
         )
+
+    migrate_transactions_route_source_check(connection)
+
+
+def migrate_transactions_route_source_check(connection: sqlite3.Connection) -> None:
+    """Allow OpenRouteService route sources in existing demo databases."""
+
+    table_row = connection.execute(
+        """
+        SELECT sql
+        FROM sqlite_master
+        WHERE type = 'table' AND name = 'transactions'
+        """
+    ).fetchone()
+    if table_row is None:
+        return
+
+    table_sql = str(table_row["sql"])
+    if "OpenRouteService" in table_sql:
+        return
+
+    connection.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+
+        CREATE TABLE transactions_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            store_id TEXT NOT NULL REFERENCES stores(id),
+            finalized_at TEXT NOT NULL,
+            product_total_huf INTEGER NOT NULL CHECK (product_total_huf >= 0),
+            travel_monetary_cost_huf INTEGER NOT NULL CHECK (
+                travel_monetary_cost_huf >= 0
+            ),
+            travel_cost_counted_huf INTEGER NOT NULL CHECK (
+                travel_cost_counted_huf >= 0
+            ),
+            travel_time_cost_huf INTEGER NOT NULL CHECK (
+                travel_time_cost_huf >= 0
+            ),
+            spending_increase_huf INTEGER NOT NULL CHECK (
+                spending_increase_huf >= 0
+            ),
+            remaining_budget_huf INTEGER NOT NULL,
+            route_source TEXT NOT NULL CHECK (
+                route_source IN ('Simulated', 'Google Maps', 'OpenRouteService')
+            ),
+            simulated_notice TEXT NOT NULL
+        );
+
+        INSERT INTO transactions_new (
+            id,
+            store_id,
+            finalized_at,
+            product_total_huf,
+            travel_monetary_cost_huf,
+            travel_cost_counted_huf,
+            travel_time_cost_huf,
+            spending_increase_huf,
+            remaining_budget_huf,
+            route_source,
+            simulated_notice
+        )
+        SELECT
+            id,
+            store_id,
+            finalized_at,
+            product_total_huf,
+            travel_monetary_cost_huf,
+            travel_cost_counted_huf,
+            travel_time_cost_huf,
+            spending_increase_huf,
+            remaining_budget_huf,
+            route_source,
+            simulated_notice
+        FROM transactions;
+
+        DROP TABLE transactions;
+        ALTER TABLE transactions_new RENAME TO transactions;
+
+        PRAGMA foreign_keys = ON;
+        """
+    )
 
 
 def add_missing_column(
