@@ -4,6 +4,28 @@
 
 SmartSpend is a Python Streamlit MVP for a Revolut-style pre-purchase grocery planning feature in Budapest II. It compares a planned grocery basket across supported stores, estimates budget impact before purchase, and simulates saving the difference toward a goal.
 
+## Changeable starting location with OpenStreetMap geocoding
+
+The app may allow users to change their route starting location.
+
+Rules:
+- Use OpenStreetMap Nominatim only for geocoding user-entered starting locations.
+- Do not geocode on every keystroke.
+- Only geocode when the user clicks a button such as “Find coordinates”.
+- Respect Nominatim usage policy:
+  - maximum 1 request per second
+  - use a valid identifying User-Agent
+  - show OpenStreetMap attribution
+- Cache the geocoded result in SQLite.
+- Store origin_address, origin_latitude, and origin_longitude in user_profile.
+- Default origin remains Széll Kálmán tér, Budapest II.
+- If geocoding fails, keep the previous valid coordinates.
+- If no previous valid coordinates exist, fall back to Széll Kálmán tér.
+- OpenRouteService must receive coordinates in [longitude, latitude] order.
+- Do not use geocoding for store coordinates; store coordinates are seeded manually.
+- Do not expose any OpenRouteService API key.
+- Do not place secrets in code, README, tests, UI, or logs.
+
 ## OpenRouteService live routing integration
 
 The final MVP may use OpenRouteService for live route distance and travel-time estimates.
