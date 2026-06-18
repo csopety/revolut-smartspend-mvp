@@ -10,7 +10,8 @@ from smartspend.basket import Basket, BasketLine, reload_basket
 from smartspend.database import DEFAULT_DB_PATH, connect, ensure_demo_database
 
 SIMULATED_TRANSACTION_NOTICE = (
-    "Simulated grocery purchase for the local SmartSpend MVP. No real money moved."
+    "Simulated grocery purchase for the local SmartSpend MVP. No external account "
+    "or payment rail was touched."
 )
 
 
