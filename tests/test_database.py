@@ -5,10 +5,18 @@ from smartspend.database import (
     DEFAULT_ORIGIN_ADDRESS,
     DEFAULT_ORIGIN_LATITUDE,
     DEFAULT_ORIGIN_LONGITUDE,
+    ensure_demo_database,
     initialize_database,
     reset_demo_data,
     update_user_profile,
 )
+
+EXPECTED_STORE_COORDINATES = {
+    "lidl_huvosvolgyi": (47.54840, 18.94768),
+    "tesco_becsi": (47.56550, 19.01056),
+    "aldi_mammut": (47.56710, 19.01238),
+    "spar_rozsakert": (47.56710, 19.01238),
+}
 
 
 def count_rows(db_path: Path, table_name: str) -> int:
@@ -218,9 +226,9 @@ def test_stores_have_seeded_latitude_and_longitude(tmp_path: Path) -> None:
         }
         rows = connection.execute(
             """
-            SELECT chain, latitude, longitude
+            SELECT id, chain, latitude, longitude
             FROM stores
-            ORDER BY chain
+            ORDER BY id
             """
         ).fetchall()
 
@@ -228,8 +236,41 @@ def test_stores_have_seeded_latitude_and_longitude(tmp_path: Path) -> None:
     assert len(rows) == 4
     assert {row["chain"] for row in rows} == {"Aldi", "Lidl", "SPAR", "Tesco"}
     for row in rows:
-        assert 47.0 <= row["latitude"] <= 48.0
-        assert 18.0 <= row["longitude"] <= 20.0
+        expected_latitude, expected_longitude = EXPECTED_STORE_COORDINATES[row["id"]]
+        assert row["latitude"] == expected_latitude
+        assert row["longitude"] == expected_longitude
+
+
+def test_ensure_demo_database_updates_existing_store_coordinates(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+
+    reset_demo_data(db_path)
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            """
+            UPDATE stores
+            SET latitude = 47.0,
+                longitude = 19.0
+            WHERE id = 'lidl_huvosvolgyi'
+            """
+        )
+
+    ensure_demo_database(db_path)
+
+    with sqlite3.connect(db_path) as connection:
+        connection.row_factory = sqlite3.Row
+        row = connection.execute(
+            """
+            SELECT latitude, longitude
+            FROM stores
+            WHERE id = 'lidl_huvosvolgyi'
+            """
+        ).fetchone()
+
+    assert row["latitude"] == EXPECTED_STORE_COORDINATES["lidl_huvosvolgyi"][0]
+    assert row["longitude"] == EXPECTED_STORE_COORDINATES["lidl_huvosvolgyi"][1]
 
 
 def test_reset_demo_data_preserves_valid_route_coordinates(tmp_path: Path) -> None:

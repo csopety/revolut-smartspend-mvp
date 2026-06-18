@@ -22,8 +22,8 @@ STORE_SEEDS = [
         "neighborhood": "Huvosvolgy",
         "travel_minutes": 14,
         "distance_km": 3.5,
-        "latitude": 47.5453,
-        "longitude": 18.9639,
+        "latitude": 47.54840,
+        "longitude": 18.94768,
     },
     {
         "id": "aldi_mammut",
@@ -32,8 +32,8 @@ STORE_SEEDS = [
         "neighborhood": "Szell Kalman ter",
         "travel_minutes": 9,
         "distance_km": 2.2,
-        "latitude": 47.5089,
-        "longitude": 19.0262,
+        "latitude": 47.56710,
+        "longitude": 19.01238,
     },
     {
         "id": "spar_rozsakert",
@@ -42,8 +42,8 @@ STORE_SEEDS = [
         "neighborhood": "Torokvesz",
         "travel_minutes": 7,
         "distance_km": 1.8,
-        "latitude": 47.5311,
-        "longitude": 19.0092,
+        "latitude": 47.56710,
+        "longitude": 19.01238,
     },
     {
         "id": "tesco_becsi",
@@ -52,8 +52,8 @@ STORE_SEEDS = [
         "neighborhood": "Ujlak",
         "travel_minutes": 18,
         "distance_km": 4.5,
-        "latitude": 47.5404,
-        "longitude": 19.0371,
+        "latitude": 47.56550,
+        "longitude": 19.01056,
     },
 ]
 
@@ -849,6 +849,22 @@ def ensure_demo_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
               AND longitude BETWEEN -180 AND 180
             """
         ).fetchone()[0]
+        expected_coordinate_clauses = " OR ".join(
+            "(id = ? AND latitude = ? AND longitude = ?)" for _store in STORE_SEEDS
+        )
+        expected_coordinate_params = [
+            value
+            for store in STORE_SEEDS
+            for value in (store["id"], store["latitude"], store["longitude"])
+        ]
+        expected_store_coordinate_count = connection.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM stores
+            WHERE {expected_coordinate_clauses}
+            """,
+            expected_coordinate_params,
+        ).fetchone()[0]
         profile_coordinate_count = connection.execute(
             """
             SELECT COUNT(*)
@@ -869,6 +885,7 @@ def ensure_demo_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
         or enriched_history_count < 6
         or required_goal_count < 3
         or store_coordinate_count < store_count
+        or expected_store_coordinate_count < len(STORE_SEEDS)
         or profile_coordinate_count < 1
     ):
         seed_default_data(db_path)
