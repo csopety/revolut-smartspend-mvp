@@ -4,6 +4,24 @@
 
 SmartSpend is a Python Streamlit MVP for a Revolut-style pre-purchase grocery planning feature in Budapest II. It compares a planned grocery basket across supported stores, estimates budget impact before purchase, and simulates saving the difference toward a goal.
 
+## OpenRouteService live routing integration
+
+The final MVP may use OpenRouteService for live route distance and travel-time estimates.
+
+Important:
+- Never hardcode API keys.
+- Never print API keys.
+- Never commit `.env` or `.streamlit/secrets.toml`.
+- Use environment variable `OPENROUTESERVICE_API_KEY`.
+- Optional fallback names may include `ORS_API_KEY`.
+- Use `.env.example` only with placeholder values.
+- If no API key exists, use simulated route fallback.
+- If API call fails, use simulated route fallback.
+- If travel mode is public transport, use simulated route fallback unless a real public-transport API is implemented.
+- OpenRouteService may be used for walking and car routes.
+- OpenRouteService must affect only distance, travel time, and route source.
+- OpenRouteService must not affect grocery prices, budgets, transactions, historical data, savings goals, or optimizer formulas except through route distance/time inputs.
+
 ## Final Architecture
 
 - `app.py`: premium dark phone-style Streamlit UI with Home, Plan, History, and Setup screens.
