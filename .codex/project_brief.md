@@ -3,6 +3,26 @@
 ## What we are building
 A presentation-ready MVP of Revolut SmartSpend for a FinTech school assignment.
 
+## Final implementation brief
+
+Use the current project as the source of truth. The older uploaded project is only a reference for desired features and UI flow.
+
+The final MVP should be implemented by improving the current modular codebase:
+- app.py for Streamlit UI
+- smartspend/database.py for SQLite persistence
+- smartspend/optimizer.py for deterministic ranking
+- smartspend/transactions.py for finalization
+- smartspend/favorites.py for reusable lists
+- smartspend/insights.py and warnings.py for analytics
+- smartspend/agentic_explainer.py for explanations
+
+Main final goal:
+Create a premium, dark, phone-first Revolut SmartSpend demo that shows:
+Plan → Compare → Finalize → Verify → Save.
+
+Main new analytics feature:
+“Will I stay on track this month?”
+
 ## User journey
 1. User opens SmartSpend.
 2. User sees monthly grocery budget and remaining budget.

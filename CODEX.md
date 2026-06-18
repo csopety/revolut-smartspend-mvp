@@ -3,6 +3,128 @@
 ## Project goal
 Build a Python Streamlit MVP for Revolut SmartSpend, a pre-purchase grocery basket optimizer for Budapest II district.
 
+## Final implementation direction
+
+Important context:
+The current project is our own SmartSpend codebase. A separate reference project was reviewed only as a feature checklist. Do not copy or overwrite our project with the reference project.
+
+The current codebase already includes:
+- SQLite persistence
+- product search
+- basket logic
+- store recommendation optimizer
+- transaction finalization backend
+- previous lists
+- favorites
+- savings goals
+- route fallback
+- spending insights
+- deterministic warnings
+- agentic explanation
+
+The final implementation should improve and complete the current project, not rebuild it.
+
+## Features still required
+
+Implement these missing or incomplete features:
+
+1. Phone-style navigation:
+   - Home
+   - Plan or Basket
+   - History
+   - Setup
+
+2. Premium dark Revolut-style UI:
+   - dark navy/black background
+   - electric purple and blue gradients
+   - glassmorphism cards
+   - phone frame on desktop
+   - white typography
+   - muted grey secondary text
+   - glowing recommendation cards
+
+3. Persistent setup/profile settings:
+   - save monthly budget
+   - save usual store
+   - save max travel time
+   - save travel monetary cost per km
+   - save origin/address if implemented
+   - preserve values after refresh/restart
+
+4. Guided Before / During / After journey:
+   - Before shopping: budget risk and planning
+   - During shopping: basket comparison
+   - After shopping: finalize, verify savings, save difference
+
+5. Investor demo mode:
+   - one-click demo scenario
+   - realistic budget, spent so far, usual store, travel assumptions, basket
+   - must not finalize a transaction automatically
+
+6. Stronger finalization UX:
+   - store actually visited
+   - custom list name
+   - include travel monetary cost checkbox
+   - optional savings goal if positive savings exist
+   - clear post-finalization success state
+
+7. Simulated savings verification:
+   - compare finalized basket with usual-store estimate
+   - show estimated verified saving
+   - clearly label as simulated
+   - no OCR, no payment, no real money movement
+
+8. Recommendation transparency:
+   - why this store won
+   - why not other stores
+   - calculation receipt
+   - confidence and route labels
+
+9. Current-month on-track prediction:
+   - History / Insights card
+   - projected month-end spend
+   - on-track likelihood
+   - explanation bullets
+   - deterministic and explainable
+
+10. Richer historical insights:
+   - weekly pattern
+   - store split
+   - over/under budget
+   - selected month details
+
+11. Pilot KPI dashboard:
+   - simulated adoption
+   - repeat usage
+   - average saving per shop
+   - savings-goal usage uplift
+   - basket estimate variance
+   - trust/compliance status
+
+12. Trust and audit drawer:
+   - data used
+   - data not used
+   - formulas
+   - guardrails
+   - simulation boundaries
+
+## Non-negotiable rules
+
+- Do not copy the reference project wholesale.
+- Do not rebuild working modules unless a concrete bug requires it.
+- Preserve tests.
+- Budget changes only after finalization.
+- Reloading previous lists or favorites must not change budget.
+- Travel-time cost never counts as real spending.
+- Travel monetary cost counts only if explicitly enabled.
+- All banking, savings, route, historical, and grocery data are simulated.
+- No real Revolut integration.
+- No real banking connection.
+- No real payment.
+- No real receipt OCR.
+- No guaranteed-cheapest claims.
+- AI/agentic explanation must not change calculations.
+
 ## Business context
 SmartSpend helps users make better grocery spending decisions before purchase. The MVP compares stores based on basket price, travel time, travel cost, remaining budget, and expected savings.
 

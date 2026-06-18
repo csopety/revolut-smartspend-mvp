@@ -122,3 +122,23 @@ Codex helped build the MVP in small phases:
 5. Wrote concise documentation for the algorithm, architecture, and demo flow.
 
 The project remains intentionally simple so a beginner can read the code and understand how the recommendation is calculated.
+
+
+## Final implementation roadmap
+
+This branch upgrades the current SmartSpend MVP into the final premium version.
+
+The current backend already includes SQLite persistence, product search, optimizer logic, transactions, favorites, savings goals, route fallback, warnings, and insights.
+
+The final work focuses on:
+- phone-style navigation
+- premium dark Revolut-style UI
+- persistent setup controls
+- investor demo mode
+- simulated savings verification
+- why-not-other-stores explanation
+- calculation receipt
+- current-month on-track prediction
+- pilot KPI dashboard
+- trust/audit drawer
+- final documentation and demo script
