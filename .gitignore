@@ -180,3 +180,9 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 .DS_Store
+
+# Local SmartSpend demo persistence
+data/*.db
+data/*.db-journal
+data/*.db-shm
+data/*.db-wal

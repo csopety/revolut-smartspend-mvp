@@ -33,3 +33,14 @@ The evaluator should be able to:
 - See savings calculation.
 - Understand the recommendation logic.
 - Understand which business-plan features are implemented and which are excluded.
+
+## V2 development priority
+
+Quality is more important than feature quantity. Implement one stable feature group at a time. After every phase:
+1. Run pytest.
+2. Run streamlit run app.py manually.
+3. Fix errors.
+4. Commit changes.
+
+Do not rewrite the whole app unless absolutely necessary.
+Prefer modular files over putting all logic into app.py.

@@ -15,6 +15,7 @@ class Product:
     name: str
     category: str
     unit: str
+    aliases: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

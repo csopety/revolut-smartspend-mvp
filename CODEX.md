@@ -63,3 +63,34 @@ For each store:
 - After each stable change, commit to Git.
 - Before major changes, explain the plan first.
 - Do not rewrite the whole project without permission.
+
+## V2 Premium MVP upgrade
+
+We are upgrading the simple SmartSpend demo into a high-quality MVP.
+
+The app must include:
+- Typeahead product search with no visible category dropdown.
+- At least 75 simulated products with English and Hungarian aliases.
+- Four stores: Lidl, Aldi, SPAR, Tesco.
+- Deterministic recommendation algorithm.
+- SQLite persistence.
+- Finalized grocery transactions.
+- Previous grocery lists.
+- Favorite grocery lists.
+- Simulated savings goals.
+- Historical spending insights with charts.
+- Deterministic warning messages.
+- Optional Google Maps route integration with safe fallback.
+- Agentic-style explanation layer that explains calculated results but never changes calculations.
+
+Important rules:
+- Budget changes only after finalizing a purchase.
+- Planning a basket must not update spending.
+- Reloading previous lists must not update spending.
+- Reloading favorites must not update spending.
+- Travel-time cost never counts as real spending.
+- Travel monetary cost counts only if explicitly enabled.
+- All banking, savings, transactions, prices, route data, and historical data are simulated.
+- The app must work without external APIs.
+- Do not hardcode API keys.
+- Do not connect to real banks, Revolut, payment systems, real retailer APIs, or real user financial accounts.
