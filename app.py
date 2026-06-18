@@ -47,7 +47,7 @@ from smartspend.optimizer import (
     optimize_premium_basket,
 )
 from smartspend.product_search import search_products
-from smartspend.route_service import get_route
+from smartspend.route_service import get_openrouteservice_api_key, get_route
 from smartspend.savings import list_savings_goals, simulate_save_difference_to_goal
 from smartspend.transactions import (
     finalize_purchase,
@@ -768,8 +768,8 @@ def render_store_result_card(result: PremiumStoreResult, is_recommended: bool) -
             <div class="smart-kicker">Rank {result.rank}{' - selected' if is_recommended else ''}</div>
             <h3>{escape(result.store.name)}</h3>
             <p class="smart-subtle">
-                Route: {escape(result.route_source)} · {result.travel_time_min} min ·
-                {result.distance_km:.1f} km · Can win: {'Yes' if result.can_win else 'No'}
+                Route source: {escape(result.route_source)} · Distance: {result.distance_km:.1f} km ·
+                Travel time: {result.travel_time_min} min · Can win: {'Yes' if result.can_win else 'No'}
             </p>
             <div class="metric-grid">
                 <div class="mini-metric"><div class="mini-label">Basket</div><div class="mini-value">{escape(format_huf(result.product_total_huf))}</div></div>
@@ -1371,10 +1371,11 @@ def render_setup_screen(profile: dict[str, int | str]) -> None:
         value=bool(st.session_state["consent_enabled"]),
     )
     st.session_state["use_google_maps"] = st.checkbox(
-        "Use live routing via OpenRouteService if configured",
+        "Use live routing API when available",
         value=bool(st.session_state["use_google_maps"]),
-        help="Reads OPENROUTESERVICE_API_KEY or ORS_API_KEY from the environment and falls back to simulated routes if unavailable.",
+        help="Uses OpenRouteService for walking and car route estimates when an API key is available. Public transport remains simulated in this MVP.",
     )
+    render_route_api_status(str(st.session_state["transport_mode"]))
     st.markdown("</div>", unsafe_allow_html=True)
 
     if st.button("Save profile settings", type="primary", use_container_width=True):
@@ -1403,7 +1404,8 @@ def render_trust_audit_drawer() -> None:
         st.markdown(
             """
             **Data used:** simulated product catalog, simulated store prices,
-            simulated Budapest II route estimates, local planning basket, local
+            Budapest II route estimates that may come from OpenRouteService when
+            live routing is enabled and available, local planning basket, local
             profile settings, simulated finalized transactions, simulated savings
             goals, and simulated historical grocery spending.
 
@@ -1425,11 +1427,26 @@ def render_trust_audit_drawer() -> None:
             avoids guaranteed-cheapest claims and describes outputs as estimates
             based on supported simulated data.
 
-            **Simulated-data disclaimer:** all banking, savings, grocery,
-            transaction, route, historical, and pilot KPI data shown here is
-            simulated for a local MVP demo.
+            **Simulated-data disclaimer:** grocery prices, budgets,
+            transactions, savings goals, historical spending, banking behavior,
+            and pilot KPI data remain simulated for a local MVP demo. Route
+            distance and travel time may be estimated by OpenRouteService for
+            walking or car routes when enabled; otherwise they remain simulated.
             """
         )
+
+
+def render_route_api_status(transport_mode: str) -> None:
+    """Show live route availability without exposing credentials."""
+
+    if transport_mode == TRANSPORT_PUBLIC_TRANSPORT:
+        st.info("Public transport routes are simulated in this MVP")
+        return
+
+    if get_openrouteservice_api_key():
+        st.success("Live route API key detected")
+    else:
+        st.warning("No live route key found — using simulated routes")
 
 
 def render_reset_demo_data() -> None:

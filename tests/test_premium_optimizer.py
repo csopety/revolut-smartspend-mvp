@@ -124,6 +124,43 @@ def test_walking_travel_monetary_cost_is_zero(
     assert all(item.travel_monetary_cost_huf == 0 for item in result.results)
 
 
+def test_optimizer_uses_openrouteservice_distance_and_time(
+    premium_stores: list[Store],
+    premium_basket: list[BasketItem],
+    routes: dict[str, RouteResult],
+) -> None:
+    routes = {
+        **routes,
+        "usual": RouteResult(
+            "usual",
+            distance_km=3.4,
+            travel_minutes=11,
+            route_source="OpenRouteService",
+        ),
+    }
+
+    result = optimize_premium_basket(
+        stores=premium_stores,
+        basket=premium_basket,
+        monthly_budget_huf=10_000,
+        already_spent_huf=2_000,
+        max_travel_minutes=20,
+        usual_store_id="usual",
+        routes_by_store_id=routes,
+        transport_mode=TRANSPORT_CAR,
+        travel_cost_per_km_huf=100,
+        value_of_time_huf_per_min=5,
+    )
+
+    usual = next(item for item in result.results if item.store.id == "usual")
+
+    assert usual.route_source == "OpenRouteService"
+    assert usual.distance_km == 3.4
+    assert usual.travel_time_min == 11
+    assert usual.travel_monetary_cost_huf == 340
+    assert usual.travel_time_cost_huf == 55
+
+
 def test_stores_over_max_travel_time_remain_visible_but_cannot_win(
     premium_stores: list[Store],
     premium_basket: list[BasketItem],
