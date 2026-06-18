@@ -1,218 +1,139 @@
-# CODEX.md — SmartSpend MVP Agent Instructions
+# CODEX.md — SmartSpend Premium MVP
 
-## Project goal
-Build a Python Streamlit MVP for Revolut SmartSpend, a pre-purchase grocery basket optimizer for Budapest II district.
+## Project Goal
 
-## Final implementation direction
+SmartSpend is a Python Streamlit MVP for a Revolut-style pre-purchase grocery planning feature in Budapest II. It compares a planned grocery basket across supported stores, estimates budget impact before purchase, and simulates saving the difference toward a goal.
 
-Important context:
-The current project is our own SmartSpend codebase. A separate reference project was reviewed only as a feature checklist. Do not copy or overwrite our project with the reference project.
+## Final Architecture
 
-The current codebase already includes:
-- SQLite persistence
-- product search
-- basket logic
-- store recommendation optimizer
-- transaction finalization backend
-- previous lists
-- favorites
-- savings goals
-- route fallback
-- spending insights
-- deterministic warnings
-- agentic explanation
+- `app.py`: premium dark phone-style Streamlit UI with Home, Plan, History, and Setup screens.
+- `smartspend/database.py`: local SQLite persistence at `data/smartspend_demo.db`, additive migrations, seeded demo data, profile update support.
+- `smartspend/product_search.py`: search over product names, display names, aliases, prefixes, partial strings, and tags.
+- `smartspend/basket.py`: basket add/edit/remove/clear behavior.
+- `smartspend/route_service.py`: optional Google Maps lookup with simulated fallback.
+- `smartspend/optimizer.py`: deterministic store recommendation logic.
+- `smartspend/transactions.py`: simulated purchase finalization, transaction lines, previous lists, and spending updates.
+- `smartspend/favorites.py`: favorite list save/reload/delete.
+- `smartspend/savings.py`: simulated savings goals and simulated movements.
+- `smartspend/insights.py`: historical insights and current-month on-track prediction.
+- `smartspend/warnings.py`: deterministic budget warnings.
+- `smartspend/agentic_explainer.py`: explanation layer that explains calculated results only.
+- `tests/`: unit tests for persistence, search, basket, optimizer, routes, transactions, favorites, savings, warnings, insights, and explanations.
+- `docs/`: algorithm, architecture, demo script, and acceptance checklist.
 
-The final implementation should improve and complete the current project, not rebuild it.
+## Final Feature Set
 
-## Features still required
+- Premium dark Revolut-style phone UI.
+- Four-screen navigation: Home, Plan, History, Setup.
+- Simulated Budapest II data for Lidl, Aldi, SPAR, and Tesco.
+- 75+ products with English and Hungarian aliases.
+- Typeahead product search with no visible category dropdown.
+- Persistent setup/profile settings: budget, usual store, max travel time, travel cost per km, and origin/address.
+- Investor demo scenario that loads realistic settings and basket without finalizing a purchase.
+- Recommendation engine with product total, unavailable items, confidence, travel monetary cost, travel-time cost, net total, budget impact, savings, max-travel eligibility, and route source.
+- Optimization modes: cheapest basket, lowest total cost including travel, best budget fit, and balanced recommendation.
+- “Why not other stores?” explanation using optimizer outputs only.
+- Calculation receipt with all major cost components.
+- Simulated purchase finalization with store actually visited, custom list name, travel cost checkbox, optional savings goal, and verification receipt.
+- Previous grocery lists and favorite lists.
+- Simulated savings goals and save-the-difference success moment.
+- Current-month on-track prediction in History → Insights.
+- Historical charts for monthly budget, weekly pattern, and store split.
+- Simulated pilot KPI dashboard.
+- Trust/audit drawer with data used, data not used, formulas, guardrails, and simulation boundaries.
+- Optional Google Maps support through `GOOGLE_MAPS_API_KEY`, with safe simulated fallback.
 
-Implement these missing or incomplete features:
+## Non-Negotiable Rules
 
-1. Phone-style navigation:
-   - Home
-   - Plan or Basket
-   - History
-   - Setup
-
-2. Premium dark Revolut-style UI:
-   - dark navy/black background
-   - electric purple and blue gradients
-   - glassmorphism cards
-   - phone frame on desktop
-   - white typography
-   - muted grey secondary text
-   - glowing recommendation cards
-
-3. Persistent setup/profile settings:
-   - save monthly budget
-   - save usual store
-   - save max travel time
-   - save travel monetary cost per km
-   - save origin/address if implemented
-   - preserve values after refresh/restart
-
-4. Guided Before / During / After journey:
-   - Before shopping: budget risk and planning
-   - During shopping: basket comparison
-   - After shopping: finalize, verify savings, save difference
-
-5. Investor demo mode:
-   - one-click demo scenario
-   - realistic budget, spent so far, usual store, travel assumptions, basket
-   - must not finalize a transaction automatically
-
-6. Stronger finalization UX:
-   - store actually visited
-   - custom list name
-   - include travel monetary cost checkbox
-   - optional savings goal if positive savings exist
-   - clear post-finalization success state
-
-7. Simulated savings verification:
-   - compare finalized basket with usual-store estimate
-   - show estimated verified saving
-   - clearly label as simulated
-   - no OCR, no payment, no real money movement
-
-8. Recommendation transparency:
-   - why this store won
-   - why not other stores
-   - calculation receipt
-   - confidence and route labels
-
-9. Current-month on-track prediction:
-   - History / Insights card
-   - projected month-end spend
-   - on-track likelihood
-   - explanation bullets
-   - deterministic and explainable
-
-10. Richer historical insights:
-   - weekly pattern
-   - store split
-   - over/under budget
-   - selected month details
-
-11. Pilot KPI dashboard:
-   - simulated adoption
-   - repeat usage
-   - average saving per shop
-   - savings-goal usage uplift
-   - basket estimate variance
-   - trust/compliance status
-
-12. Trust and audit drawer:
-   - data used
-   - data not used
-   - formulas
-   - guardrails
-   - simulation boundaries
-
-## Non-negotiable rules
-
-- Do not copy the reference project wholesale.
+- Do not copy another reference project wholesale.
 - Do not rebuild working modules unless a concrete bug requires it.
-- Preserve tests.
-- Budget changes only after finalization.
-- Reloading previous lists or favorites must not change budget.
-- Travel-time cost never counts as real spending.
-- Travel monetary cost counts only if explicitly enabled.
-- All banking, savings, route, historical, and grocery data are simulated.
+- Preserve existing tests and add focused tests for new behavior.
+- Budget changes only after finalizing a simulated purchase.
+- Planning a basket must not update spending.
+- Running a recommendation must not update spending.
+- Reloading previous lists or favorites must not update spending.
+- Product basket total always counts toward spending after finalization.
+- Travel monetary cost counts only when explicitly selected at finalization.
+- Travel-time opportunity cost never counts as real spending.
+- Savings movements are simulated only and must not be represented as real money movement.
 - No real Revolut integration.
 - No real banking connection.
 - No real payment.
 - No real receipt OCR.
+- No real retailer API or scraping.
 - No guaranteed-cheapest claims.
-- AI/agentic explanation must not change calculations.
+- AI/agentic explanation must not change calculations, prices, rankings, spending, or savings.
 
-## Business context
-SmartSpend helps users make better grocery spending decisions before purchase. The MVP compares stores based on basket price, travel time, travel cost, remaining budget, and expected savings.
+## Data And Persistence
 
-## Business-plan logic
-The original concept is a Revolut budgeting extension that moves personal finance from passive post-transaction tracking to active pre-purchase optimization. The MVP should show this through a grocery basket comparison and savings recommendation.
+The app uses local SQLite persistence stored at `data/smartspend_demo.db`. Demo data is created by `ensure_demo_database()` and can be reset with `reset_demo_data()`.
 
-## Non-negotiable constraints
-- Use Python.
-- Use Streamlit for the user interface.
-- Use simulated data by default.
-- The MVP must run locally with: streamlit run app.py
-- The test suite must run with: pytest
-- Do not require Google Maps or any paid API for the basic demo.
-- Do not build real banking, real payment, real scraping, or real personal-data integrations.
-- Keep the recommendation algorithm rule-based, transparent, and auditable.
-- AI may help explain trade-offs, but AI must not make the financial calculation.
-- Keep the MVP narrow, stable, and presentation-ready.
+Core tables include:
 
-## MVP scope
-- Location: Budapest II district.
-- Grocery chains: 4 chains.
-- Product categories: 3 basic food categories.
-- User input: budget, already spent amount, basket, max travel time, usual store.
-- Output: recommended store, ranked alternatives, expected savings, explanation, and simulated “save the difference” flow.
+- `user_profile`
+- `savings_goals`
+- `products`
+- `stores`
+- `store_prices`
+- `historical_monthly_spending`
+- `transactions`
+- `transaction_line_items`
+- `previous_lists`
+- `previous_list_items`
+- `favorite_lists`
+- `favorite_list_items`
+- `current_basket_items`
+- `savings_movements`
 
-## Core features
-1. User sets a monthly grocery budget.
-2. User enters a grocery basket.
-3. App compares 4 grocery chains.
-4. Algorithm calculates basket price, travel cost, effective total cost, savings, and budget fit.
-5. App recommends the best store.
-6. App explains why that store was selected.
-7. App simulates moving the savings into a Revolut-style Pocket.
+SQLite migrations must be additive and safe for existing demo databases.
 
-## Core algorithm idea
-For each store:
-1. Calculate basket price.
-2. Add estimated travel cost.
-3. Check whether travel time is within the user's maximum travel time.
-4. Compare effective total cost against the user's usual store.
-5. Estimate savings.
-6. Show budget impact.
-7. Rank stores using transparent rule-based scoring.
+## Search Requirements
 
-## Quality standards
-- Simple and readable code.
-- Clear function names.
-- Type hints where useful.
-- Unit tests for optimizer logic.
-- Beginner-friendly README.
-- No hidden magic.
-- No overclaiming of price accuracy.
-- Include a disclaimer that all grocery prices and store distances are simulated for MVP purposes.
+Product search must support names, display names, Hungarian names, aliases, prefixes, partial strings, and tags. Required demo terms include:
 
-## Development workflow
-- Work in small phases.
-- After each phase, run pytest.
-- After each stable change, commit to Git.
-- Before major changes, explain the plan first.
-- Do not rewrite the whole project without permission.
+- `cucu` and `ubi` for cucumber
+- `tej` for milk
+- `csir` for chicken products
+- `trap` for Trappista cheese
 
-## V2 Premium MVP upgrade
+No category dropdown should be introduced.
 
-We are upgrading the simple SmartSpend demo into a high-quality MVP.
+## Optimizer Rules
 
-The app must include:
-- Typeahead product search with no visible category dropdown.
-- At least 75 simulated products with English and Hungarian aliases.
-- Four stores: Lidl, Aldi, SPAR, Tesco.
-- Deterministic recommendation algorithm.
-- SQLite persistence.
-- Finalized grocery transactions.
-- Previous grocery lists.
-- Favorite grocery lists.
-- Simulated savings goals.
-- Historical spending insights with charts.
-- Deterministic warning messages.
-- Optional Google Maps route integration with safe fallback.
-- Agentic-style explanation layer that explains calculated results but never changes calculations.
+For each store, calculate product total, unavailable items, confidence, travel monetary cost, travel-time opportunity cost, net comparison total, remaining budget after purchase, overspend amount, savings versus usual store, savings versus most expensive option, max-travel eligibility, route source, and rank.
 
-Important rules:
-- Budget changes only after finalizing a purchase.
-- Planning a basket must not update spending.
-- Reloading previous lists must not update spending.
-- Reloading favorites must not update spending.
-- Travel-time cost never counts as real spending.
-- Travel monetary cost counts only if explicitly enabled.
-- All banking, savings, transactions, prices, route data, and historical data are simulated.
-- The app must work without external APIs.
-- Do not hardcode API keys.
-- Do not connect to real banks, Revolut, payment systems, real retailer APIs, or real user financial accounts.
+Stores above max travel remain visible but cannot win. Stores with unavailable required items cannot win unless substitutions are explicitly accepted. All calculations must be deterministic and explainable.
+
+## Finalization Rules
+
+Only `finalize_purchase()` updates simulated spent so far. Finalization saves a transaction, transaction line items, a previous list, and clears the current basket. Previous-list reloads and favorite reloads are planning actions only and must not create transactions or update budget.
+
+## Insights And Trust
+
+Current-month prediction must be deterministic and use current spend, budget, historical average, weekly distribution, and over-budget frequency. Pilot KPIs are simulated, with average saving per finalized shop calculated from local transactions when available.
+
+Trust/audit copy must clearly state what data is used, what data is not used, formulas, guardrails, and the simulated-data disclaimer.
+
+## Commands
+
+Run the app:
+
+```bash
+streamlit run app.py
+```
+
+Run tests:
+
+```bash
+pytest
+```
+
+Compile check:
+
+```bash
+python -m py_compile app.py smartspend/*.py
+```
+
+## Development Workflow
+
+Work in small phases. Read the current code before editing. Prefer existing module boundaries and helper functions. Keep changes scoped, preserve tests, and run `pytest` plus `py_compile` after implementation work.

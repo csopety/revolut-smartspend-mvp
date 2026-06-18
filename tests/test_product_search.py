@@ -71,3 +71,23 @@ def test_prefix_and_partial_search_are_supported(tmp_path: Path) -> None:
 
     assert prefix_results[0].product_id == "tomatoes"
     assert any(result.product_id == "strawberries" for result in partial_results)
+
+
+def test_exact_display_name_match_has_top_ranking(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+
+    results = search_products("Milk", db_path=db_path)
+
+    assert results[0].product_id == "milk"
+    assert results[0].match_type == "exact"
+    assert results[0].rank_score == 1
+
+
+def test_search_limit_is_respected(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+
+    results = search_products("tej", limit=2, db_path=db_path)
+
+    assert len(results) == 2

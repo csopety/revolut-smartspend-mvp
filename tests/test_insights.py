@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from smartspend.database import reset_demo_data
 from smartspend.insights import (
     calculate_current_month_track_prediction,
@@ -113,3 +115,44 @@ def test_current_month_track_prediction_flags_likely_overspend(
     assert prediction.severity == "danger"
     assert prediction.projected_spend_huf > 120000
     assert prediction.over_under_budget_huf < 0
+
+
+def test_current_month_track_prediction_is_deterministic(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+
+    first_prediction = calculate_current_month_track_prediction(
+        current_spend_huf=72000,
+        monthly_budget_huf=160000,
+        day_of_month=18,
+        db_path=db_path,
+    )
+    second_prediction = calculate_current_month_track_prediction(
+        current_spend_huf=72000,
+        monthly_budget_huf=160000,
+        day_of_month=18,
+        db_path=db_path,
+    )
+
+    assert first_prediction == second_prediction
+
+
+def test_current_month_track_prediction_validates_inputs(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+
+    with pytest.raises(ValueError, match="Monthly budget"):
+        calculate_current_month_track_prediction(
+            current_spend_huf=1000,
+            monthly_budget_huf=0,
+            day_of_month=10,
+            db_path=db_path,
+        )
+
+    with pytest.raises(ValueError, match="Day of month"):
+        calculate_current_month_track_prediction(
+            current_spend_huf=1000,
+            monthly_budget_huf=150000,
+            day_of_month=32,
+            db_path=db_path,
+        )

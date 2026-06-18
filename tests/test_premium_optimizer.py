@@ -265,3 +265,32 @@ def test_premium_optimizer_accepts_human_labels_and_brief_field_names(
         recommended.savings_vs_most_expensive_store
         == recommended.savings_vs_most_expensive_store_huf
     )
+
+
+def test_premium_optimizer_balanced_mode_keeps_travel_time_as_comparison_cost_only(
+    premium_stores: list[Store],
+    premium_basket: list[BasketItem],
+    routes: dict[str, RouteResult],
+) -> None:
+    result = optimize_premium_basket(
+        stores=premium_stores,
+        basket=premium_basket,
+        monthly_budget_huf=10_000,
+        already_spent_huf=2_000,
+        max_travel_minutes=10,
+        usual_store_id="usual",
+        routes_by_store_id=routes,
+        travel_cost_per_km_huf=100,
+        value_of_time_huf_per_min=40,
+    )
+
+    usual = next(item for item in result.results if item.store.id == "usual")
+
+    assert result.recommended.store.id == "usual"
+    assert usual.travel_time_cost_huf == 200
+    assert usual.net_total_cost_huf == (
+        usual.product_total_huf
+        + usual.travel_monetary_cost_huf
+        + usual.travel_time_cost_huf
+    )
+    assert usual.remaining_budget_after_purchase_huf == 6600

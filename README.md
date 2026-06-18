@@ -1,144 +1,139 @@
-# Revolut SmartSpend MVP
+# SmartSpend Premium MVP
 
-SmartSpend is a small Streamlit MVP for a FinTech school assignment. It shows how a Revolut-style budgeting feature could help a user decide where to buy a grocery basket before spending money.
+SmartSpend is a local Streamlit MVP for a Revolut-style grocery planning feature. It helps a user compare a planned basket before shopping, estimate the budget impact, and simulate saving the difference toward a goal.
 
-The demo focuses on Budapest II district and uses simulated grocery prices, travel times, and travel costs. It does not connect to banks, retailers, payment systems, or map APIs.
+The demo is scoped to Budapest II and four supported grocery chains: Lidl, Aldi, SPAR, and Tesco.
 
-## What The MVP Does
+## Simulated MVP Disclaimer
 
-- Lets the user set a monthly grocery budget and amount already spent.
-- Lets the user choose quantities for a small grocery basket.
-- Compares 4 simulated grocery chains in Budapest II.
-- Calculates basket price, travel cost, effective total cost, remaining budget, and savings against the user's usual store.
-- Marks stores as eligible or ineligible based on maximum travel time.
-- Recommends the best eligible store.
-- Simulates moving savings into a SmartSpend Pocket.
+All banking, grocery, transaction, savings, route, historical, and pilot KPI data is simulated for a local demo. The app does not connect to real banks, Revolut accounts, payment systems, receipt OCR, retailer APIs, live grocery prices, or real money movement. Recommendations are estimates based on supported simulated data, not guaranteed-cheapest claims.
 
-## Install
+## Final Feature List
 
-Create and activate a virtual environment:
+- Premium dark phone-style Streamlit UI with four screens: Home, Plan, History, and Setup.
+- SQLite persistence at `data/smartspend_demo.db`.
+- Search-first grocery basket builder with English and Hungarian aliases.
+- 75+ simulated products and four simulated Budapest II stores.
+- Deterministic optimizer with basket price, travel cost, time cost, budget fit, confidence, unavailable items, and ranked results.
+- Investor demo scenario that loads settings and basket without finalizing a purchase.
+- Closed-loop finalization: store actually visited, custom list name, optional travel monetary cost, optional simulated savings goal, and post-finalization verification.
+- Previous grocery lists and favorite grocery lists.
+- Simulated savings goals and save-the-difference moment.
+- Current-month on-track prediction using current and historical demo data.
+- Spending insights charts and simulated pilot KPI dashboard.
+- Trust/audit drawer explaining data, formulas, guardrails, and simulation boundaries.
+- Optional Google Maps route lookup with safe simulated fallback.
+- Agentic-style explanation that explains calculated results only.
+
+## Installation
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
 pip install -r requirements.txt
 ```
 
-## Run
+## Running
 
 ```bash
 streamlit run app.py
 ```
 
-Then open the local URL shown by Streamlit.
+Open the local URL shown by Streamlit, usually `http://localhost:8501`.
 
-## Test
-
-Activate the virtual environment, then run:
+## Testing
 
 ```bash
 pytest
+python -m py_compile app.py smartspend/*.py
 ```
 
-The tests focus on the optimizer logic because the calculation is the core of the MVP.
+The suite covers database seeding, search, basket behavior, optimizer logic, warnings, explanations, routes, transactions, previous lists, favorites, savings goals, and insights.
 
-## Simulated Data
+## Architecture
 
-All grocery and travel data is invented for demonstration. The dataset includes:
+- `app.py`: Streamlit phone-style UI and screen navigation.
+- `smartspend/database.py`: SQLite initialization, migrations, seed data, and profile persistence.
+- `smartspend/product_search.py`: deterministic search over names, aliases, prefixes, partials, and tags.
+- `smartspend/basket.py`: basket add/edit/remove/clear logic.
+- `smartspend/optimizer.py`: rule-based recommendation engine.
+- `smartspend/route_service.py`: Google Maps optional lookup with simulated fallback.
+- `smartspend/transactions.py`: purchase finalization, spending update, and previous list persistence.
+- `smartspend/favorites.py`: favorite list save/reload/delete.
+- `smartspend/savings.py`: simulated savings goals and movements.
+- `smartspend/insights.py`: historical spending insights and on-track prediction.
+- `smartspend/warnings.py`: deterministic budget warnings.
+- `smartspend/agentic_explainer.py`: explanation layer that does not change calculations.
+- `tests/`: unit tests for backend behavior and safety rules.
 
-- 4 chains: Aldi, Lidl, SPAR, and Tesco
-- 3 categories: Bakery, Dairy, and Produce
-- 6 products with simulated HUF prices
-- simulated Budapest II neighborhoods
-- simulated travel times
-- travel cost calculated from a user-controlled cost per km
+## Product Search
 
-This keeps the app presentation-ready without requiring Google Maps, retailer APIs, scraping, or paid services.
+Product discovery is typeahead-first with no category dropdown. Search matches product name, display name, Hungarian name, aliases, prefixes, partial strings, and tags. Demo terms include `cucu` and `ubi` for cucumber, `tej` for milk, `csir` for chicken products, and `trap` for Trappista cheese.
 
-## Algorithm
+## Optimizer
 
-For each store, SmartSpend:
+For each supported store, SmartSpend calculates:
 
-1. Multiplies each selected product price by its quantity.
-2. Adds those values to get the basket price.
-3. Adds estimated travel cost to get the effective total cost.
-4. Checks whether the store is within the user's maximum travel time.
-5. Compares the result with the user's usual store.
-6. Calculates expected savings and remaining monthly grocery budget.
-7. Ranks eligible stores first, then sorts by lowest effective total cost.
+- product basket total
+- unavailable required items
+- confidence score
+- travel monetary cost
+- travel-time opportunity cost
+- net comparison total
+- remaining budget after purchase
+- overspend amount
+- savings versus usual store
+- savings versus most expensive option
+- max-travel eligibility
+- route source
 
-The algorithm is rule-based and auditable. AI is not used to make the financial calculation.
+Optimization modes include cheapest basket, lowest total cost including travel, best budget fit, and balanced recommendation. The algorithm is deterministic and auditable; AI is not used to make rankings.
 
-## Business-Plan Features Implemented
+## Finalization And Budget Rules
 
-- Pre-purchase grocery basket comparison
-- Budget-aware recommendation
-- Travel time and travel cost trade-off
-- Store ranking across 4 grocery chains
-- Savings estimate versus usual store
-- Simulated Revolut-style SmartSpend Pocket
-- Clear disclaimer that the data is simulated
+Planning a basket does not update spending. Running a recommendation does not update spending. Reloading previous lists or favorites does not update spending.
 
-## Features Excluded
+Only finalizing a simulated purchase updates spent so far. Product basket total always counts toward grocery spending. Travel monetary cost counts only if the user selects it at finalization. Travel-time opportunity cost never counts as real spending.
 
-- real Revolut login
-- real bank account connection
-- real payments
-- real card transactions
-- real retailer APIs
-- live grocery prices
-- Google Maps or paid routing APIs
-- web scraping
-- personal data storage
-- AI-based financial decision-making
+## Previous Lists And Favorites
 
-These exclusions keep the MVP narrow, stable, ethical, and easy to run locally.
+Finalized purchases are saved as previous grocery lists. A previous list can be viewed, reloaded for planning, or saved as a favorite. Favorite lists can be saved from the current basket, viewed, reloaded, or deleted. These actions are planning conveniences and do not update spending.
 
-## Project Structure
+## Savings Goals
 
-```text
-app.py                    Streamlit user interface
-smartspend/models.py      Simple data models
-smartspend/data_generator.py
-                          Simulated grocery and store data
-smartspend/optimizer.py   Rule-based recommendation logic
-tests/test_optimizer.py   Unit tests for optimizer behavior
-docs/                     Supporting explanation and demo notes
-```
+The app seeds simulated goals such as Emergency fund, Holiday, and New laptop. If a finalized shop has positive estimated savings versus the usual store, the UI can simulate moving that difference into a selected goal. This is clearly labeled as simulated and does not move real money.
 
-## How Codex Was Used
+## On-Track Prediction
 
-Codex helped build the MVP in small phases:
+History → Insights includes “Will I stay on track this month?” It uses current simulated spend, monthly budget, historical average, weekly distribution, and over-budget frequency to produce a deterministic projection, over/under amount, likelihood percentage, and explanation bullets.
 
-1. Read the project brief and planned the implementation.
-2. Created simulated grocery data and data models.
-3. Implemented the transparent optimizer and unit tests.
-4. Built the Streamlit interface.
-5. Wrote concise documentation for the algorithm, architecture, and demo flow.
+## Pilot KPI Dashboard
 
-The project remains intentionally simple so a beginner can read the code and understand how the recommendation is calculated.
+History → Pilot proof shows simulated adoption, repeat usage, average saving per finalized shop, savings-goal usage uplift, basket estimate variance, and trust/compliance status. Average saving uses local transactions when available and falls back to a seeded demo value otherwise.
 
+## Trust/Audit Drawer
 
-## Final implementation roadmap
+Setup and Pilot proof include a trust/audit drawer with data used, data not used, formulas, guardrails, and the simulated-data disclaimer. It explicitly states there is no real banking connection, Revolut account, payment, retailer API, money movement, or guaranteed-cheapest claim.
 
-This branch upgrades the current SmartSpend MVP into the final premium version.
+## Optional Google Maps
 
-The current backend already includes SQLite persistence, product search, optimizer logic, transactions, favorites, savings goals, route fallback, warnings, and insights.
+The app works without Google Maps. If `GOOGLE_MAPS_API_KEY` is available through the environment or Streamlit secrets and the user enables Google Maps in Setup, route distance/time may come from Google Maps. If no key exists or the API fails, the app falls back to simulated routes. Google Maps only affects distance, travel time, and route source.
 
-The final work focuses on:
-- phone-style navigation
-- premium dark Revolut-style UI
-- persistent setup controls
-- investor demo mode
-- simulated savings verification
-- why-not-other-stores explanation
-- calculation receipt
-- current-month on-track prediction
-- pilot KPI dashboard
-- trust/audit drawer
-- final documentation and demo script
+## AI And Codex Usage
+
+Codex was used to implement the MVP in phases: data and persistence, search and basket logic, route fallback, optimizer, transactions, savings goals, insights, the premium Streamlit UI, tests, and documentation. The app’s recommendation and prediction calculations remain deterministic Python logic. The agentic explanation layer only explains calculated outputs and does not change rankings, prices, spending, or savings.
+
+## Limitations
+
+- Simulated prices may not match real stores.
+- Store availability and promotions are invented for demo purposes.
+- Route data is simulated unless Google Maps is explicitly configured.
+- The app has no authentication or production privacy model.
+- The app is not financial advice.
+- There is no real Revolut integration.
+- There is no live retailer, banking, payment, receipt OCR, or account-data integration.
+- The UI is an MVP prototype, not a production mobile app.
+
+## Manual Acceptance Checklist
+
+See [docs/acceptance_checklist.md](docs/acceptance_checklist.md) for the final QA checklist.

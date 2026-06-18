@@ -72,6 +72,26 @@ def test_route_falls_back_to_simulated_on_google_failure(tmp_path: Path) -> None
     assert route.travel_minutes == 7
 
 
+def test_route_falls_back_to_simulated_on_google_error_status(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+
+    def error_status_request(*args: object, **kwargs: object) -> FakeGoogleResponse:
+        return FakeGoogleResponse({"status": "REQUEST_DENIED", "routes": []})
+
+    route = get_route(
+        "aldi_mammut",
+        use_google_maps=True,
+        api_key="fake-key",
+        db_path=str(db_path),
+        request_get=error_status_request,
+    )
+
+    assert route.route_source == "Simulated"
+    assert route.distance_km == 2.2
+    assert route.travel_minutes == 9
+
+
 def test_route_can_use_google_maps_when_key_and_response_work(tmp_path: Path) -> None:
     db_path = tmp_path / "smartspend_demo.db"
     reset_demo_data(db_path)
