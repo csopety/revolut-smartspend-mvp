@@ -3,6 +3,8 @@ from pathlib import Path
 
 from smartspend.database import (
     DEFAULT_ORIGIN_ADDRESS,
+    DEFAULT_ORIGIN_LATITUDE,
+    DEFAULT_ORIGIN_LONGITUDE,
     initialize_database,
     reset_demo_data,
     update_user_profile,
@@ -189,11 +191,75 @@ def test_user_profile_default_origin_is_seeded(tmp_path: Path) -> None:
     reset_demo_data(db_path)
 
     with sqlite3.connect(db_path) as connection:
-        origin_address = connection.execute(
-            "SELECT origin_address FROM user_profile WHERE id = 1"
-        ).fetchone()[0]
+        connection.row_factory = sqlite3.Row
+        row = connection.execute(
+            """
+            SELECT origin_address, origin_latitude, origin_longitude
+            FROM user_profile
+            WHERE id = 1
+            """
+        ).fetchone()
 
-    assert origin_address == DEFAULT_ORIGIN_ADDRESS
+    assert row["origin_address"] == DEFAULT_ORIGIN_ADDRESS
+    assert row["origin_latitude"] == DEFAULT_ORIGIN_LATITUDE
+    assert row["origin_longitude"] == DEFAULT_ORIGIN_LONGITUDE
+
+
+def test_stores_have_seeded_latitude_and_longitude(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+
+    reset_demo_data(db_path)
+
+    with sqlite3.connect(db_path) as connection:
+        connection.row_factory = sqlite3.Row
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(stores)").fetchall()
+        }
+        rows = connection.execute(
+            """
+            SELECT chain, latitude, longitude
+            FROM stores
+            ORDER BY chain
+            """
+        ).fetchall()
+
+    assert {"latitude", "longitude"}.issubset(columns)
+    assert len(rows) == 4
+    assert {row["chain"] for row in rows} == {"Aldi", "Lidl", "SPAR", "Tesco"}
+    for row in rows:
+        assert 47.0 <= row["latitude"] <= 48.0
+        assert 18.0 <= row["longitude"] <= 20.0
+
+
+def test_reset_demo_data_preserves_valid_route_coordinates(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+
+    reset_demo_data(db_path)
+    reset_demo_data(db_path)
+
+    with sqlite3.connect(db_path) as connection:
+        invalid_store_coordinates = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM stores
+            WHERE latitude NOT BETWEEN -90 AND 90
+               OR longitude NOT BETWEEN -180 AND 180
+               OR latitude IS NULL
+               OR longitude IS NULL
+            """
+        ).fetchone()[0]
+        profile = connection.execute(
+            """
+            SELECT origin_latitude, origin_longitude
+            FROM user_profile
+            WHERE id = 1
+            """
+        ).fetchone()
+
+    assert invalid_store_coordinates == 0
+    assert profile[0] == DEFAULT_ORIGIN_LATITUDE
+    assert profile[1] == DEFAULT_ORIGIN_LONGITUDE
 
 
 def test_product_aliases_include_required_search_terms(tmp_path: Path) -> None:
