@@ -1110,18 +1110,26 @@ def render_spending_insights(settings: dict[str, int | str | bool]) -> None:
     st.markdown(
         f"""
         <div class="glass-card">
-            <div class="smart-kicker">Current-month prediction</div>
-            <h3>{escape(prediction.status)}</h3>
+            <div class="smart-kicker">Simulated prediction based on current and historical demo data</div>
+            <h3>Will I stay on track this month?</h3>
             <p class="smart-subtle">
-                Projected month-end spend: {escape(format_huf(prediction.projected_spend_huf))}
-                · On-track likelihood: {prediction.likelihood_percentage}%.
+                Deterministic projection only. No AI is used for this calculation.
             </p>
+            <div class="metric-grid">
+                <div class="mini-metric"><div class="mini-label">Status</div><div class="mini-value">{escape(prediction.status)}</div></div>
+                <div class="mini-metric"><div class="mini-label">Projected month-end</div><div class="mini-value">{escape(format_huf(prediction.projected_spend_huf))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Current budget</div><div class="mini-value">{escape(format_huf(int(settings["monthly_budget_huf"])))}</div></div>
+                <div class="mini-metric"><div class="mini-label">Projected over/under</div><div class="mini-value">{escape(format_huf(abs(prediction.over_under_budget_huf)))} {'under' if prediction.over_under_budget_huf >= 0 else 'over'}</div></div>
+                <div class="mini-metric"><div class="mini-label">On-track likelihood</div><div class="mini-value">{prediction.likelihood_percentage}%</div></div>
+                <div class="mini-metric"><div class="mini-label">Severity</div><div class="mini-value">{escape(prediction.severity.title())}</div></div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+    st.markdown("**Explanation**")
     for point in prediction.explanation_points:
-        st.caption(point)
+        st.markdown(f"- {point}")
 
     historical_months = load_historical_months()
     selected_month = st.selectbox(
@@ -1180,26 +1188,117 @@ def render_spending_insights(settings: dict[str, int | str | bool]) -> None:
 def render_pilot_proof() -> None:
     """Render simulated investor demo KPI proof."""
 
-    st.caption("All pilot proof values are simulated for MVP storytelling.")
-    metrics = [
-        ("Adoption", "38%", "demo users who planned at least one basket"),
-        ("Repeat usage", "2.4x", "average weekly planning sessions"),
-        ("Avg saving/shop", "1,180 HUF", "estimated against usual store"),
-        ("Goal uplift", "19%", "users trying simulated save-the-difference"),
-        ("Estimate variance", "±7%", "simulated basket estimate variance"),
-        ("Trust status", "Pass", "no real banking, payment, or retailer data"),
-    ]
-    for label, value, caption in metrics:
+    st.subheader("Pilot proof")
+    st.caption(
+        "Simulated pilot metrics for MVP storytelling. Average saving per finalized "
+        "shop is calculated from local transactions when available; otherwise it "
+        "uses a seeded demo value."
+    )
+    for metric in calculate_pilot_kpis():
         st.markdown(
             f"""
             <div class="glass-card">
-                <div class="smart-kicker">{escape(label)}</div>
-                <h3>{escape(value)}</h3>
-                <p class="smart-subtle">{escape(caption)}</p>
+                <div class="smart-kicker">{escape(metric["label"])}</div>
+                <h3>{escape(metric["value"])}</h3>
+                <p class="smart-subtle">{escape(metric["caption"])}</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
+    render_trust_audit_drawer()
+
+
+def calculate_pilot_kpis() -> list[dict[str, str]]:
+    """Build deterministic simulated pilot KPI values."""
+
+    transaction_count = count_finalized_transactions()
+    savings_movement_count = count_savings_movements()
+    average_saving_huf = calculate_average_saving_per_finalized_shop()
+    adoption_rate = 38 + min(transaction_count * 2, 8)
+    repeat_usage = 2.4 + min(transaction_count, 4) * 0.1
+    savings_goal_uplift = 19 + min(savings_movement_count * 3, 9)
+    variance = 7 if transaction_count == 0 else max(4, 7 - min(transaction_count, 3))
+
+    return [
+        {
+            "label": "Adoption rate",
+            "value": f"{adoption_rate}%",
+            "caption": "simulated users who planned at least one basket",
+        },
+        {
+            "label": "Repeat usage",
+            "value": f"{repeat_usage:.1f}x",
+            "caption": "simulated average weekly planning sessions",
+        },
+        {
+            "label": "Average saving per finalized shop",
+            "value": format_huf(average_saving_huf),
+            "caption": "calculated from local simulated transactions when available",
+        },
+        {
+            "label": "Savings-goal usage uplift",
+            "value": f"{savings_goal_uplift}%",
+            "caption": "simulated lift from save-the-difference goal moments",
+        },
+        {
+            "label": "Basket estimate variance",
+            "value": f"+/-{variance}%",
+            "caption": "simulated variance between basket estimate and finalized shop",
+        },
+        {
+            "label": "Trust/compliance status",
+            "value": "Pass",
+            "caption": "deterministic calculations; no real banking, payment, or retailer API",
+        },
+    ]
+
+
+def count_finalized_transactions() -> int:
+    """Return finalized simulated transaction count."""
+
+    ensure_demo_database()
+    with connect(DEFAULT_DB_PATH) as connection:
+        return int(connection.execute("SELECT COUNT(*) FROM transactions").fetchone()[0])
+
+
+def count_savings_movements() -> int:
+    """Return simulated savings movement count."""
+
+    ensure_demo_database()
+    with connect(DEFAULT_DB_PATH) as connection:
+        return int(connection.execute("SELECT COUNT(*) FROM savings_movements").fetchone()[0])
+
+
+def calculate_average_saving_per_finalized_shop() -> int:
+    """Calculate average product saving versus usual store or return seeded demo value."""
+
+    ensure_demo_database()
+    with connect(DEFAULT_DB_PATH) as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                t.id,
+                t.product_total_huf,
+                SUM(COALESCE(sp.price_huf * li.quantity, li.line_total_huf)) AS usual_total_huf
+            FROM transactions t
+            JOIN transaction_line_items li ON li.transaction_id = t.id
+            JOIN user_profile up ON up.id = 1
+            LEFT JOIN store_prices sp
+                ON sp.product_id = li.product_id
+               AND sp.store_id = up.usual_store_id
+               AND sp.is_available = 1
+            GROUP BY t.id, t.product_total_huf
+            """
+        ).fetchall()
+
+    if not rows:
+        return 1180
+
+    savings = [
+        max(int(row["usual_total_huf"]) - int(row["product_total_huf"]), 0)
+        for row in rows
+    ]
+    return round(sum(savings) / len(savings))
 
 
 def render_setup_screen(profile: dict[str, int | str]) -> None:
@@ -1302,20 +1401,31 @@ def render_trust_audit_drawer() -> None:
         st.markdown(
             """
             **Data used:** simulated product catalog, simulated store prices,
-            simulated Budapest II route estimates, local basket, local profile,
-            simulated historical grocery spending, and simulated goals.
+            simulated Budapest II route estimates, local planning basket, local
+            profile settings, simulated finalized transactions, simulated savings
+            goals, and simulated historical grocery spending.
 
-            **Data not used:** real banking data, real Revolut accounts, payment
-            data, receipt OCR, live retailer APIs, or confirmed in-store prices.
+            **Data not used:** no real banking connection, no real Revolut
+            account, no real payment, no receipt OCR, no real retailer API, no
+            live card/account data, and no confirmed in-store price feed.
 
-            **Formula:** net total = product total + estimated travel monetary
-            cost + travel-time opportunity cost. Product total always counts
-            after finalization. Travel monetary cost counts only if selected.
-            Travel-time cost never counts as real spending.
+            **Formulas:** net comparison total = product basket total + travel
+            monetary cost + travel-time opportunity cost. Remaining budget after
+            purchase = monthly budget - spent so far - product basket total.
+            Travel monetary cost counts toward spending only when selected at
+            finalization. Travel-time opportunity cost never counts as real
+            spending.
 
-            **Guardrails:** recommendations explain calculated results only,
-            stores over max travel remain visible but cannot win, and unavailable
-            required items block a store from winning.
+            **Guardrails:** deterministic calculations only; no AI changes
+            rankings or prices. Stores over max travel remain visible but cannot
+            win. Unavailable required items block a store from winning. Savings
+            movement is simulated only, with no real money movement. The app
+            avoids guaranteed-cheapest claims and describes outputs as estimates
+            based on supported simulated data.
+
+            **Simulated-data disclaimer:** all banking, savings, grocery,
+            transaction, route, historical, and pilot KPI data shown here is
+            simulated for a local MVP demo.
             """
         )
 
