@@ -35,6 +35,14 @@ def test_database_initializes_required_tables(tmp_path: Path) -> None:
         "stores",
         "store_prices",
         "historical_monthly_spending",
+        "transactions",
+        "transaction_line_items",
+        "previous_lists",
+        "previous_list_items",
+        "favorite_lists",
+        "favorite_list_items",
+        "current_basket_items",
+        "savings_movements",
     }.issubset(table_names)
 
 

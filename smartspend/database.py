@@ -233,6 +233,85 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 transaction_count INTEGER NOT NULL CHECK (transaction_count >= 0),
                 notes TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                store_id TEXT NOT NULL REFERENCES stores(id),
+                finalized_at TEXT NOT NULL,
+                product_total_huf INTEGER NOT NULL CHECK (product_total_huf >= 0),
+                travel_monetary_cost_huf INTEGER NOT NULL CHECK (
+                    travel_monetary_cost_huf >= 0
+                ),
+                travel_cost_counted_huf INTEGER NOT NULL CHECK (
+                    travel_cost_counted_huf >= 0
+                ),
+                travel_time_cost_huf INTEGER NOT NULL CHECK (
+                    travel_time_cost_huf >= 0
+                ),
+                spending_increase_huf INTEGER NOT NULL CHECK (
+                    spending_increase_huf >= 0
+                ),
+                remaining_budget_huf INTEGER NOT NULL,
+                route_source TEXT NOT NULL CHECK (
+                    route_source IN ('Simulated', 'Google Maps')
+                ),
+                simulated_notice TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS transaction_line_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                transaction_id INTEGER NOT NULL REFERENCES transactions(id)
+                    ON DELETE CASCADE,
+                product_id TEXT NOT NULL REFERENCES products(id),
+                quantity INTEGER NOT NULL CHECK (quantity > 0),
+                unit_price_huf INTEGER NOT NULL CHECK (unit_price_huf > 0),
+                line_total_huf INTEGER NOT NULL CHECK (line_total_huf > 0)
+            );
+
+            CREATE TABLE IF NOT EXISTS previous_lists (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                transaction_id INTEGER NOT NULL UNIQUE REFERENCES transactions(id)
+                    ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                store_id TEXT NOT NULL REFERENCES stores(id),
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS previous_list_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                previous_list_id INTEGER NOT NULL REFERENCES previous_lists(id)
+                    ON DELETE CASCADE,
+                product_id TEXT NOT NULL REFERENCES products(id),
+                quantity INTEGER NOT NULL CHECK (quantity > 0)
+            );
+
+            CREATE TABLE IF NOT EXISTS favorite_lists (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS favorite_list_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                favorite_list_id INTEGER NOT NULL REFERENCES favorite_lists(id)
+                    ON DELETE CASCADE,
+                product_id TEXT NOT NULL REFERENCES products(id),
+                quantity INTEGER NOT NULL CHECK (quantity > 0)
+            );
+
+            CREATE TABLE IF NOT EXISTS current_basket_items (
+                product_id TEXT PRIMARY KEY REFERENCES products(id),
+                quantity INTEGER NOT NULL CHECK (quantity > 0)
+            );
+
+            CREATE TABLE IF NOT EXISTS savings_movements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                goal_id TEXT NOT NULL REFERENCES savings_goals(id),
+                amount_huf INTEGER NOT NULL CHECK (amount_huf > 0),
+                created_at TEXT NOT NULL,
+                label TEXT NOT NULL,
+                simulated_notice TEXT NOT NULL
+            );
             """
         )
 
@@ -278,9 +357,9 @@ def seed_default_data(db_path: Path | str = DEFAULT_DB_PATH) -> None:
             VALUES (?, ?, ?, ?, ?, ?)
             """,
             [
-                ("rainy_day", "Rainy day buffer", 300000, 85000, 25000, 1),
-                ("weekend_trip", "Weekend trip", 180000, 42000, 15000, 2),
-                ("holiday_food", "Holiday grocery cushion", 90000, 18000, 8000, 3),
+                ("emergency_fund", "Emergency fund", 300000, 85000, 25000, 1),
+                ("holiday", "Holiday", 180000, 42000, 15000, 2),
+                ("new_laptop", "New laptop", 420000, 110000, 30000, 3),
             ],
         )
         connection.executemany(
@@ -343,6 +422,13 @@ def ensure_demo_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
         history_count = connection.execute(
             "SELECT COUNT(*) FROM historical_monthly_spending"
         ).fetchone()[0]
+        required_goal_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM savings_goals
+            WHERE id IN ('emergency_fund', 'holiday', 'new_laptop')
+            """
+        ).fetchone()[0]
 
     expected_price_count = product_count * store_count
     if (
@@ -350,6 +436,7 @@ def ensure_demo_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
         or store_count == 0
         or price_count < expected_price_count
         or history_count < 6
+        or required_goal_count < 3
     ):
         seed_default_data(db_path)
 
