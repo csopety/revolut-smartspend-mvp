@@ -10,6 +10,9 @@ from smartspend.models import BasketItem, Product, Store
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "smartspend_demo.db"
+DEFAULT_ORIGIN_ADDRESS = "Széll Kálmán tér, Budapest II"
+DEFAULT_ORIGIN_LATITUDE = 47.5076
+DEFAULT_ORIGIN_LONGITUDE = 19.0240
 
 STORE_SEEDS = [
     {
@@ -19,6 +22,8 @@ STORE_SEEDS = [
         "neighborhood": "Huvosvolgy",
         "travel_minutes": 14,
         "distance_km": 3.5,
+        "latitude": 47.54510653574783,
+        "longitude": 18.962848219071322,
     },
     {
         "id": "aldi_mammut",
@@ -27,6 +32,8 @@ STORE_SEEDS = [
         "neighborhood": "Szell Kalman ter",
         "travel_minutes": 9,
         "distance_km": 2.2,
+        "latitude": 47.508623779082136,
+        "longitude": 19.026129496998564,
     },
     {
         "id": "spar_rozsakert",
@@ -35,6 +42,8 @@ STORE_SEEDS = [
         "neighborhood": "Torokvesz",
         "travel_minutes": 7,
         "distance_km": 1.8,
+        "latitude": 47.522678948771826,
+        "longitude": 19.014748181658817,
     },
     {
         "id": "tesco_becsi",
@@ -43,6 +52,8 @@ STORE_SEEDS = [
         "neighborhood": "Ujlak",
         "travel_minutes": 18,
         "distance_km": 4.5,
+        "latitude": 47.56307158883334,
+        "longitude": 19.021628036706577,
     },
 ]
 
@@ -169,7 +180,9 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 chain TEXT NOT NULL UNIQUE,
                 neighborhood TEXT NOT NULL,
                 travel_minutes INTEGER NOT NULL CHECK (travel_minutes >= 0),
-                distance_km REAL NOT NULL CHECK (distance_km >= 0)
+                distance_km REAL NOT NULL CHECK (distance_km >= 0),
+                latitude REAL NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+                longitude REAL NOT NULL CHECK (longitude BETWEEN -180 AND 180)
             );
 
             CREATE TABLE IF NOT EXISTS user_profile (
@@ -189,6 +202,13 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 ),
                 include_travel_cost_in_spending INTEGER NOT NULL CHECK (
                     include_travel_cost_in_spending IN (0, 1)
+                ),
+                origin_address TEXT NOT NULL DEFAULT 'Széll Kálmán tér, Budapest II',
+                origin_latitude REAL NOT NULL DEFAULT 47.5076 CHECK (
+                    origin_latitude BETWEEN -90 AND 90
+                ),
+                origin_longitude REAL NOT NULL DEFAULT 19.0240 CHECK (
+                    origin_longitude BETWEEN -180 AND 180
                 )
             );
 
@@ -231,6 +251,18 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 grocery_spend_huf INTEGER NOT NULL CHECK (grocery_spend_huf >= 0),
                 planned_budget_huf INTEGER NOT NULL CHECK (planned_budget_huf >= 0),
                 transaction_count INTEGER NOT NULL CHECK (transaction_count >= 0),
+                week_1_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (week_1_spend_huf >= 0),
+                week_2_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (week_2_spend_huf >= 0),
+                week_3_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (week_3_spend_huf >= 0),
+                week_4_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (week_4_spend_huf >= 0),
+                lidl_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (lidl_spend_huf >= 0),
+                aldi_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (aldi_spend_huf >= 0),
+                spar_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (spar_spend_huf >= 0),
+                tesco_spend_huf INTEGER NOT NULL DEFAULT 0 CHECK (tesco_spend_huf >= 0),
+                highest_purchase_huf INTEGER NOT NULL DEFAULT 0 CHECK (
+                    highest_purchase_huf >= 0
+                ),
+                most_used_store TEXT NOT NULL DEFAULT 'Lidl',
                 notes TEXT NOT NULL
             );
 
@@ -253,7 +285,7 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 ),
                 remaining_budget_huf INTEGER NOT NULL,
                 route_source TEXT NOT NULL CHECK (
-                    route_source IN ('Simulated', 'Google Maps')
+                    route_source IN ('Simulated', 'OpenRouteService')
                 ),
                 simulated_notice TEXT NOT NULL
             );
@@ -314,6 +346,304 @@ def initialize_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
             );
             """
         )
+        migrate_database(connection)
+
+
+def migrate_database(connection: sqlite3.Connection) -> None:
+    """Apply safe additive SQLite migrations for existing demo databases."""
+
+    store_columns = {
+        "latitude": "REAL",
+        "longitude": "REAL",
+    }
+    for column_name, column_definition in store_columns.items():
+        add_missing_column(
+            connection=connection,
+            table_name="stores",
+            column_name=column_name,
+            column_definition=column_definition,
+        )
+
+    add_missing_column(
+        connection=connection,
+        table_name="user_profile",
+        column_name="origin_address",
+        column_definition=(
+            "TEXT NOT NULL DEFAULT 'Széll Kálmán tér, Budapest II'"
+        ),
+    )
+    add_missing_column(
+        connection=connection,
+        table_name="user_profile",
+        column_name="origin_latitude",
+        column_definition="REAL NOT NULL DEFAULT 47.5076",
+    )
+    add_missing_column(
+        connection=connection,
+        table_name="user_profile",
+        column_name="origin_longitude",
+        column_definition="REAL NOT NULL DEFAULT 19.0240",
+    )
+
+    historical_columns = {
+        "week_1_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (week_1_spend_huf >= 0)",
+        "week_2_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (week_2_spend_huf >= 0)",
+        "week_3_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (week_3_spend_huf >= 0)",
+        "week_4_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (week_4_spend_huf >= 0)",
+        "lidl_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (lidl_spend_huf >= 0)",
+        "aldi_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (aldi_spend_huf >= 0)",
+        "spar_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (spar_spend_huf >= 0)",
+        "tesco_spend_huf": "INTEGER NOT NULL DEFAULT 0 CHECK (tesco_spend_huf >= 0)",
+        "highest_purchase_huf": (
+            "INTEGER NOT NULL DEFAULT 0 CHECK (highest_purchase_huf >= 0)"
+        ),
+        "most_used_store": "TEXT NOT NULL DEFAULT 'Lidl'",
+    }
+    for column_name, column_definition in historical_columns.items():
+        add_missing_column(
+            connection=connection,
+            table_name="historical_monthly_spending",
+            column_name=column_name,
+            column_definition=column_definition,
+        )
+
+    migrate_transactions_route_source_check(connection)
+
+
+def migrate_transactions_route_source_check(connection: sqlite3.Connection) -> None:
+    """Allow only current route sources in existing demo databases."""
+
+    table_row = connection.execute(
+        """
+        SELECT sql
+        FROM sqlite_master
+        WHERE type = 'table' AND name = 'transactions'
+        """
+    ).fetchone()
+    if table_row is None:
+        return
+
+    table_sql = str(table_row["sql"])
+    if "OpenRouteService" in table_sql and "Google Maps" not in table_sql:
+        return
+
+    connection.executescript(
+        """
+        PRAGMA foreign_keys = OFF;
+
+        CREATE TABLE transactions_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            store_id TEXT NOT NULL REFERENCES stores(id),
+            finalized_at TEXT NOT NULL,
+            product_total_huf INTEGER NOT NULL CHECK (product_total_huf >= 0),
+            travel_monetary_cost_huf INTEGER NOT NULL CHECK (
+                travel_monetary_cost_huf >= 0
+            ),
+            travel_cost_counted_huf INTEGER NOT NULL CHECK (
+                travel_cost_counted_huf >= 0
+            ),
+            travel_time_cost_huf INTEGER NOT NULL CHECK (
+                travel_time_cost_huf >= 0
+            ),
+            spending_increase_huf INTEGER NOT NULL CHECK (
+                spending_increase_huf >= 0
+            ),
+            remaining_budget_huf INTEGER NOT NULL,
+            route_source TEXT NOT NULL CHECK (
+                route_source IN ('Simulated', 'OpenRouteService')
+            ),
+            simulated_notice TEXT NOT NULL
+        );
+
+        INSERT INTO transactions_new (
+            id,
+            store_id,
+            finalized_at,
+            product_total_huf,
+            travel_monetary_cost_huf,
+            travel_cost_counted_huf,
+            travel_time_cost_huf,
+            spending_increase_huf,
+            remaining_budget_huf,
+            route_source,
+            simulated_notice
+        )
+        SELECT
+            id,
+            store_id,
+            finalized_at,
+            product_total_huf,
+            travel_monetary_cost_huf,
+            travel_cost_counted_huf,
+            travel_time_cost_huf,
+            spending_increase_huf,
+            remaining_budget_huf,
+            CASE
+                WHEN route_source = 'Google Maps' THEN 'OpenRouteService'
+                ELSE route_source
+            END,
+            simulated_notice
+        FROM transactions;
+
+        DROP TABLE transactions;
+        ALTER TABLE transactions_new RENAME TO transactions;
+
+        PRAGMA foreign_keys = ON;
+        """
+    )
+
+
+def add_missing_column(
+    connection: sqlite3.Connection,
+    table_name: str,
+    column_name: str,
+    column_definition: str,
+) -> None:
+    """Add a column only when PRAGMA table_info shows it is missing."""
+
+    existing_columns = {
+        row["name"]
+        for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+    }
+    if column_name not in existing_columns:
+        connection.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"
+        )
+
+
+def get_user_profile(db_path: Path | str = DEFAULT_DB_PATH) -> dict[str, object]:
+    """Return the persisted demo user profile."""
+
+    ensure_demo_database(db_path)
+    with connect(db_path) as connection:
+        row = connection.execute(
+            """
+            SELECT id,
+                   display_name,
+                   district,
+                   monthly_grocery_budget_huf,
+                   already_spent_current_month_huf,
+                   usual_store_id,
+                   max_travel_minutes,
+                   travel_cost_per_km_huf,
+                   include_travel_cost_in_spending,
+                   origin_address,
+                   origin_latitude,
+                   origin_longitude
+            FROM user_profile
+            WHERE id = 1
+            """
+        ).fetchone()
+
+    if row is None:
+        raise ValueError("User profile is missing.")
+
+    return dict(row)
+
+
+def validate_origin(
+    address: str,
+    latitude: float,
+    longitude: float,
+) -> tuple[str, float, float]:
+    """Validate and normalize origin fields."""
+
+    normalized_address = address.strip()
+    if not normalized_address:
+        raise ValueError("Origin address cannot be empty.")
+    if not -90 <= latitude <= 90:
+        raise ValueError("Origin latitude must be between -90 and 90.")
+    if not -180 <= longitude <= 180:
+        raise ValueError("Origin longitude must be between -180 and 180.")
+
+    return normalized_address, latitude, longitude
+
+
+def update_origin(
+    address: str,
+    latitude: float,
+    longitude: float,
+    db_path: Path | str = DEFAULT_DB_PATH,
+) -> dict[str, object]:
+    """Persist a geocoded starting location without changing spending."""
+
+    normalized_address, latitude, longitude = validate_origin(
+        address=address,
+        latitude=latitude,
+        longitude=longitude,
+    )
+
+    ensure_demo_database(db_path)
+    with connect(db_path) as connection:
+        connection.execute(
+            """
+            UPDATE user_profile
+            SET origin_address = ?,
+                origin_latitude = ?,
+                origin_longitude = ?
+            WHERE id = 1
+            """,
+            (normalized_address, latitude, longitude),
+        )
+
+    return get_user_profile(db_path)
+
+
+def update_user_profile(
+    monthly_grocery_budget_huf: int,
+    usual_store_id: str,
+    max_travel_minutes: int,
+    travel_cost_per_km_huf: int,
+    origin_address: str = DEFAULT_ORIGIN_ADDRESS,
+    origin_latitude: float = DEFAULT_ORIGIN_LATITUDE,
+    origin_longitude: float = DEFAULT_ORIGIN_LONGITUDE,
+    db_path: Path | str = DEFAULT_DB_PATH,
+) -> None:
+    """Persist user setup fields without changing current spending."""
+
+    if monthly_grocery_budget_huf < 0:
+        raise ValueError("Monthly grocery budget cannot be negative.")
+    if max_travel_minutes < 0:
+        raise ValueError("Maximum travel time cannot be negative.")
+    if travel_cost_per_km_huf < 0:
+        raise ValueError("Travel cost per km cannot be negative.")
+    normalized_origin_address, origin_latitude, origin_longitude = validate_origin(
+        address=origin_address,
+        latitude=origin_latitude,
+        longitude=origin_longitude,
+    )
+
+    ensure_demo_database(db_path)
+    with connect(db_path) as connection:
+        store_exists = connection.execute(
+            "SELECT 1 FROM stores WHERE id = ?",
+            (usual_store_id,),
+        ).fetchone()
+        if store_exists is None:
+            raise ValueError(f"No store found with id '{usual_store_id}'.")
+
+        connection.execute(
+            """
+            UPDATE user_profile
+            SET monthly_grocery_budget_huf = ?,
+                usual_store_id = ?,
+                max_travel_minutes = ?,
+                travel_cost_per_km_huf = ?,
+                origin_address = ?,
+                origin_latitude = ?,
+                origin_longitude = ?
+            WHERE id = 1
+            """,
+            (
+                monthly_grocery_budget_huf,
+                usual_store_id,
+                max_travel_minutes,
+                travel_cost_per_km_huf,
+                normalized_origin_address,
+                origin_latitude,
+                origin_longitude,
+            ),
+        )
 
 
 def seed_default_data(db_path: Path | str = DEFAULT_DB_PATH) -> None:
@@ -325,9 +655,22 @@ def seed_default_data(db_path: Path | str = DEFAULT_DB_PATH) -> None:
         connection.executemany(
             """
             INSERT OR IGNORE INTO stores (
-                id, name, chain, neighborhood, travel_minutes, distance_km
+                id, name, chain, neighborhood, travel_minutes, distance_km,
+                latitude, longitude
             )
-            VALUES (:id, :name, :chain, :neighborhood, :travel_minutes, :distance_km)
+            VALUES (
+                :id, :name, :chain, :neighborhood, :travel_minutes, :distance_km,
+                :latitude, :longitude
+            )
+            """,
+            STORE_SEEDS,
+        )
+        connection.executemany(
+            """
+            UPDATE stores
+            SET latitude = :latitude,
+                longitude = :longitude
+            WHERE id = :id
             """,
             STORE_SEEDS,
         )
@@ -342,11 +685,45 @@ def seed_default_data(db_path: Path | str = DEFAULT_DB_PATH) -> None:
                 usual_store_id,
                 max_travel_minutes,
                 travel_cost_per_km_huf,
-                include_travel_cost_in_spending
+                include_travel_cost_in_spending,
+                origin_address,
+                origin_latitude,
+                origin_longitude
             )
             VALUES (1, 'Demo User', 'Budapest II', 150000, 62000,
-                    'spar_rozsakert', 18, 120, 0)
+                    'spar_rozsakert', 18, 120, 0, ?, ?, ?)
+            """,
+            (
+                DEFAULT_ORIGIN_ADDRESS,
+                DEFAULT_ORIGIN_LATITUDE,
+                DEFAULT_ORIGIN_LONGITUDE,
+            ),
+        )
+        connection.execute(
             """
+            UPDATE user_profile
+            SET origin_address = CASE
+                    WHEN origin_address IS NULL OR TRIM(origin_address) = ''
+                    THEN ?
+                    ELSE origin_address
+                END,
+                origin_latitude = CASE
+                    WHEN origin_latitude BETWEEN -90 AND 90
+                    THEN origin_latitude
+                    ELSE ?
+                END,
+                origin_longitude = CASE
+                    WHEN origin_longitude BETWEEN -180 AND 180
+                    THEN origin_longitude
+                    ELSE ?
+                END
+            WHERE id = 1
+            """,
+            (
+                DEFAULT_ORIGIN_ADDRESS,
+                DEFAULT_ORIGIN_LATITUDE,
+                DEFAULT_ORIGIN_LONGITUDE,
+            ),
         )
         connection.executemany(
             """
@@ -383,19 +760,121 @@ def seed_default_data(db_path: Path | str = DEFAULT_DB_PATH) -> None:
         )
         connection.executemany(
             """
-            INSERT OR IGNORE INTO historical_monthly_spending (
+            INSERT OR REPLACE INTO historical_monthly_spending (
                 month, grocery_spend_huf, planned_budget_huf,
-                transaction_count, notes
+                transaction_count,
+                week_1_spend_huf, week_2_spend_huf,
+                week_3_spend_huf, week_4_spend_huf,
+                lidl_spend_huf, aldi_spend_huf,
+                spar_spend_huf, tesco_spend_huf,
+                highest_purchase_huf, most_used_store,
+                notes
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                ("2025-12", 132400, 145000, 17, "Holiday cooking, still under plan"),
-                ("2026-01", 124800, 145000, 15, "Lower spend after holidays"),
-                ("2026-02", 138200, 145000, 16, "More home cooking"),
-                ("2026-03", 149600, 150000, 18, "Near budget limit"),
-                ("2026-04", 142300, 150000, 17, "Produce prices slightly lower"),
-                ("2026-05", 156900, 155000, 19, "One larger pantry stock-up"),
+                (
+                    "2025-12",
+                    132400,
+                    145000,
+                    17,
+                    29100,
+                    35600,
+                    30200,
+                    37500,
+                    40500,
+                    35100,
+                    33000,
+                    23800,
+                    15400,
+                    "Lidl",
+                    "Holiday cooking, still under plan",
+                ),
+                (
+                    "2026-01",
+                    124800,
+                    145000,
+                    15,
+                    27600,
+                    31200,
+                    28400,
+                    37600,
+                    37400,
+                    33700,
+                    29900,
+                    23800,
+                    12100,
+                    "Aldi",
+                    "Lower spend after holidays",
+                ),
+                (
+                    "2026-02",
+                    138200,
+                    145000,
+                    16,
+                    30400,
+                    37300,
+                    31500,
+                    39000,
+                    42800,
+                    36000,
+                    33500,
+                    25900,
+                    14600,
+                    "Lidl",
+                    "More home cooking",
+                ),
+                (
+                    "2026-03",
+                    149600,
+                    150000,
+                    18,
+                    32800,
+                    40900,
+                    34100,
+                    41800,
+                    45100,
+                    39200,
+                    37400,
+                    27900,
+                    16800,
+                    "SPAR",
+                    "Near budget limit",
+                ),
+                (
+                    "2026-04",
+                    142300,
+                    150000,
+                    17,
+                    31600,
+                    38300,
+                    32200,
+                    40200,
+                    43100,
+                    38400,
+                    34300,
+                    26500,
+                    15800,
+                    "Lidl",
+                    "Produce prices slightly lower",
+                ),
+                (
+                    "2026-05",
+                    156900,
+                    155000,
+                    19,
+                    35200,
+                    42900,
+                    36700,
+                    42100,
+                    48500,
+                    40600,
+                    38600,
+                    29200,
+                    18400,
+                    "Lidl",
+                    "One larger pantry stock-up",
+                ),
             ],
         )
 
@@ -422,11 +901,55 @@ def ensure_demo_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
         history_count = connection.execute(
             "SELECT COUNT(*) FROM historical_monthly_spending"
         ).fetchone()[0]
+        enriched_history_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM historical_monthly_spending
+            WHERE week_1_spend_huf > 0
+              AND lidl_spend_huf > 0
+              AND highest_purchase_huf > 0
+              AND most_used_store <> ''
+            """
+        ).fetchone()[0]
         required_goal_count = connection.execute(
             """
             SELECT COUNT(*)
             FROM savings_goals
             WHERE id IN ('emergency_fund', 'holiday', 'new_laptop')
+            """
+        ).fetchone()[0]
+        store_coordinate_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM stores
+            WHERE latitude BETWEEN -90 AND 90
+              AND longitude BETWEEN -180 AND 180
+            """
+        ).fetchone()[0]
+        expected_coordinate_clauses = " OR ".join(
+            "(id = ? AND latitude = ? AND longitude = ?)" for _store in STORE_SEEDS
+        )
+        expected_coordinate_params = [
+            value
+            for store in STORE_SEEDS
+            for value in (store["id"], store["latitude"], store["longitude"])
+        ]
+        expected_store_coordinate_count = connection.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM stores
+            WHERE {expected_coordinate_clauses}
+            """,
+            expected_coordinate_params,
+        ).fetchone()[0]
+        profile_coordinate_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM user_profile
+            WHERE id = 1
+              AND origin_address <> ''
+              AND origin_latitude BETWEEN -90 AND 90
+              AND origin_longitude BETWEEN -180 AND 180
             """
         ).fetchone()[0]
 
@@ -436,7 +959,11 @@ def ensure_demo_database(db_path: Path | str = DEFAULT_DB_PATH) -> None:
         or store_count == 0
         or price_count < expected_price_count
         or history_count < 6
+        or enriched_history_count < 6
         or required_goal_count < 3
+        or store_coordinate_count < store_count
+        or expected_store_coordinate_count < len(STORE_SEEDS)
+        or profile_coordinate_count < 1
     ):
         seed_default_data(db_path)
 

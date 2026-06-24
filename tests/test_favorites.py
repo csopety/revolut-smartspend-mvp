@@ -10,7 +10,12 @@ from smartspend.favorites import (
     reload_favorite_as_current_basket,
     save_current_basket_as_favorite,
 )
-from smartspend.transactions import finalize_purchase, get_spent_so_far
+from smartspend.transactions import (
+    finalize_purchase,
+    get_spent_so_far,
+    load_current_basket,
+    save_current_basket,
+)
 
 
 def test_save_current_basket_as_favorite_with_custom_name_has_no_spending_effect(
@@ -57,6 +62,23 @@ def test_reload_favorite_as_current_basket_has_no_budget_or_transaction_effect(
     reloaded = reload_favorite_as_current_basket(favorite.id, db_path)
 
     assert reloaded.lines == basket.lines
+    assert get_spent_so_far(db_path) == starting_spent
+
+
+def test_reload_favorite_replaces_existing_current_basket_without_spending_effect(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+    favorite_basket = Basket(lines=(BasketLine("milk", 2), BasketLine("apples", 1)))
+    favorite = save_current_basket_as_favorite(favorite_basket, "Fruit and milk", db_path)
+    save_current_basket(Basket(lines=(BasketLine("bread_loaf", 3),)), db_path)
+    starting_spent = get_spent_so_far(db_path)
+
+    reloaded = reload_favorite_as_current_basket(favorite.id, db_path)
+
+    assert reloaded.lines == favorite_basket.lines
+    assert set(load_current_basket(db_path).lines) == set(favorite_basket.lines)
     assert get_spent_so_far(db_path) == starting_spent
 
 

@@ -125,6 +125,22 @@ def test_travel_monetary_cost_counts_only_when_selected(tmp_path: Path) -> None:
     assert get_spent_so_far(db_path) == starting_spent + result.product_total_huf
 
 
+def test_finalization_accepts_openrouteservice_route_source(tmp_path: Path) -> None:
+    db_path = tmp_path / "smartspend_demo.db"
+    reset_demo_data(db_path)
+    basket = Basket(lines=(BasketLine("bread_loaf", 1),))
+
+    result = finalize_purchase(
+        store_id="aldi_mammut",
+        basket=basket,
+        route_source="OpenRouteService",
+        db_path=db_path,
+    )
+
+    assert result.transaction_id == 1
+    assert count_rows(db_path, "transactions") == 1
+
+
 def test_finalization_validates_product_availability(tmp_path: Path) -> None:
     db_path = tmp_path / "smartspend_demo.db"
     reset_demo_data(db_path)
