@@ -1,79 +1,114 @@
 # SmartSpend Algorithm
 
-SmartSpend uses a transparent rule-based algorithm. It does not use AI to decide which store is best.
+SmartSpend uses deterministic calculations to compare grocery stores. AI is not used to rank stores, change prices, move money, or make financial decisions.
 
 ## Inputs
 
-- monthly grocery budget
-- amount already spent this month
-- basket item quantities
-- usual store
-- maximum travel time
-- travel cost per km
-- simulated product prices and travel times
+- Basket products and quantities.
+- Store-level product prices, availability, and promotion flags.
+- Monthly budget and amount already spent.
+- Usual store.
+- Max travel time.
+- Travel mode.
+- Travel cost per km.
+- Value of time per minute.
+- Route distance, route time, and route source.
+- Whether substitutions are accepted.
+- Optimization mode.
 
-## Calculation
+## Basket Price
 
 For each store:
 
-1. Calculate basket price:
+```text
+product_total = sum(product_price_at_store * quantity)
+```
 
-   ```text
-   basket price = sum(product price * quantity)
-   ```
+Unavailable required items are tracked separately. If a required item is unavailable and substitutions are not accepted, that store cannot win.
 
-2. Calculate travel cost:
+## Travel Monetary Cost
 
-   ```text
-   travel cost = estimated distance * travel cost per km
-   ```
+Walking has no monetary travel cost:
 
-3. Calculate effective total cost:
+```text
+walking_travel_monetary_cost = 0
+```
 
-   ```text
-   effective total cost = basket price + travel cost
-   ```
+Car and public transport use the configured cost per km:
 
-4. Check travel eligibility:
+```text
+travel_monetary_cost = distance_km * travel_cost_per_km
+```
 
-   ```text
-   eligible = store travel time <= user's maximum travel time
-   ```
+Public transport distance/time is simulated in this MVP.
 
-5. Calculate budget impact:
+## Travel-Time Opportunity Cost
 
-   ```text
-   remaining budget = monthly budget - already spent - effective total cost
-   ```
+Time cost is shown for comparison, not as real spending:
 
-6. Calculate savings versus the usual store:
+```text
+travel_time_cost = travel_time_min * value_of_time_huf_per_min
+```
 
-   ```text
-   savings = usual store effective total cost - this store effective total cost
-   ```
+This cost never updates monthly spent amount.
+
+## Net Comparison Total
+
+The comparison total is:
+
+```text
+net_total_cost = product_total + travel_monetary_cost + travel_time_cost
+```
+
+This is used to compare stores. It is not the same as final grocery spending.
+
+## Budget Fit
+
+Budget impact is calculated from product cost plus any selected real travel monetary cost during finalization:
+
+```text
+remaining_budget_after_purchase = monthly_budget - spent_so_far - counted_purchase_amount
+overspend_amount = max(0, counted_purchase_amount + spent_so_far - monthly_budget)
+```
+
+During planning, the app estimates this impact without updating the database.
+
+## Savings
+
+Savings versus usual store:
+
+```text
+savings_vs_usual_store = usual_store_net_total - store_net_total
+```
+
+Savings versus most expensive option:
+
+```text
+savings_vs_most_expensive_store = most_expensive_net_total - store_net_total
+```
+
+Savings are estimates based on simulated data. They are not guaranteed.
+
+## Confidence
+
+Confidence is based on whether required items are available and whether the store has complete price coverage for the basket. Stores with missing required items receive lower confidence and cannot win unless substitutions are accepted.
 
 ## Ranking
 
-Stores are ranked using this order:
+The optimizer keeps every store visible, then ranks deterministically. The winning store depends on the selected optimization mode:
 
-1. eligible stores first
-2. lower effective total cost first
-3. shorter travel time as a tie-breaker
-4. store name as a final stable tie-breaker
+- Cheapest basket: prioritizes lowest product total.
+- Lowest total cost including travel: prioritizes lowest net comparison total.
+- Best budget fit: prioritizes remaining within budget.
+- Balanced recommendation: balances product total, travel, availability, confidence, budget fit, and eligibility.
 
-This means a very cheap store can still appear below other options if it is outside the user's maximum travel time.
+Global ranking rules:
 
-## Output
+- Stores outside max travel time remain visible but cannot win.
+- Stores with unavailable required items cannot win unless substitutions are accepted.
+- Ties are resolved deterministically using stable store data.
+- Explanation text must use optimizer outputs only.
 
-The optimizer returns one result per store with:
+## Finalization Rule
 
-- rank
-- basket price
-- travel cost
-- effective total cost
-- remaining budget
-- savings versus usual store
-- travel eligibility
-- budget fit
-
-The Streamlit app shows the first eligible ranked store as the recommendation.
+Planning and comparison do not update spending. Only finalizing a simulated purchase updates the monthly spent amount, saves transaction lines, creates a previous list, and clears the current basket.

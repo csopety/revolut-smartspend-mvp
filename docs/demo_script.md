@@ -1,8 +1,10 @@
-# 3-Minute SmartSpend Demo Script
+# 10-Minute SmartSpend Demo Script
 
-## 0:00-0:20 — Open With The Problem
+This outline is designed for a supervisor-facing video presentation.
 
-Run:
+## 0:00-0:45 - Opening And Value Proposition
+
+Show the app starting with:
 
 ```bash
 streamlit run app.py
@@ -10,107 +12,123 @@ streamlit run app.py
 
 Say:
 
-SmartSpend is a simulated Revolut-style grocery planning MVP. Instead of only tracking spending after purchase, it helps a user compare a basket before shopping and understand the budget impact.
+SmartSpend is a simulated Revolut-style grocery planning MVP. It helps a user plan a basket before shopping, compare supported stores, estimate budget impact, and simulate saving the difference toward a goal.
 
-Point out the disclaimer: all prices, banking behavior, transactions, savings, routes, history, and pilot KPIs are simulated. There is no real Revolut account, banking connection, payment, receipt OCR, retailer API, or real money movement.
+Point out that this is an educational MVP with simulated grocery, budget, transaction, savings, and historical data.
 
-## 0:20-0:45 — Home Screen
+## 0:45-1:45 - Home Screen
 
-Show the phone-style Home screen:
+Show:
 
-- remaining grocery budget
+- monthly budget
 - spent so far
+- remaining budget
 - progress bar
-- on-track or warning summary
+- warning or on-track summary
 - Before / During / After journey strip
 - savings goals preview
 
-Say:
+Explain that the product is built around a closed loop: plan, compare, finalize, verify, and save.
 
-The flow is intentionally closed loop: before shopping, plan; during shopping, compare stores; after shopping, finalize a simulated purchase and verify the estimated saving.
+## 1:45-2:45 - Investor Demo Scenario
 
-Click **Load investor demo scenario**. Explain that it loads realistic settings and a basket only. It does not finalize a purchase, create a transaction, or update a savings goal.
+Click the investor demo scenario button if available.
 
-## 0:45-1:35 — Plan Screen
+Explain:
 
-On Plan, show the typeahead search. Search for one of:
+- it loads realistic settings and a sample basket
+- it does not finalize a purchase
+- it does not create a transaction
+- it does not update a savings goal
 
-- `cucu`
-- `ubi`
+This demonstrates the app quickly without changing spending state.
+
+## 2:45-4:15 - Product Search And Basket
+
+Go to Plan.
+
+Search for examples:
+
+- `cucu` or `ubi`
 - `tej`
 - `csir`
 - `trap`
 
-Explain that discovery is search-first with English and Hungarian aliases and no category dropdown.
+Explain that search uses names, display names, aliases, prefixes, partial strings, and tags. There is no category dropdown.
 
-Click **Compare supported stores**. Show:
+Add or adjust products in the basket. Mention that building a basket is planning only and does not affect monthly spending.
 
-- recommendation card
-- ranked store alternatives
-- route source
+## 4:15-5:45 - Store Recommendation
+
+Run the store comparison.
+
+Show:
+
+- recommended store
+- ranked alternatives
+- product total
+- travel monetary cost
+- travel-time opportunity cost
+- net comparison total
 - confidence
-- unavailable items
-- net total
+- route source
+- unavailable items, if any
 
-Say:
+Explain that the optimizer is deterministic. It does not use AI to choose the winner.
 
-The optimizer is deterministic. It compares product total, travel monetary cost, travel-time opportunity cost, budget impact, unavailable items, route source, and max travel time. It does not use AI to decide the ranking.
+## 5:45-6:45 - Why Not Other Stores And Receipt
 
-Open **Why not other stores?** and explain that each reason comes from optimizer outputs only: higher product price, higher net total, outside travel limit, unavailable items, or lower confidence.
+Open the "why not other stores" panel.
 
-Open **Calculation receipt** and show product total, travel monetary cost, travel-time opportunity cost, net total, usual-store net total, savings, and remaining budget.
+Explain that each sentence uses optimizer outputs only, such as higher net total, higher product price, outside travel limit, unavailable items, or lower confidence.
 
-## 1:35-2:15 — Finalize And Save Difference
+Open the calculation receipt and show:
 
-In finalization:
+- basket total
+- travel monetary cost
+- travel-time opportunity cost
+- usual-store net total
+- savings versus usual store
+- savings versus most expensive option
+- remaining budget after purchase
 
-- choose the store actually visited
-- keep or change the custom list name
-- decide whether travel monetary cost counts toward budget
-- choose an optional savings goal if positive savings exists
-- click **Finalize simulated purchase**
+## 6:45-7:45 - Finalize Simulated Purchase
 
-Say:
+In the finalization section:
 
-Planning and comparison do not update spending. Only finalization updates simulated spent so far. Travel-time cost never counts as real spending, and travel monetary cost counts only if selected.
+- select the store actually visited
+- enter a custom list name
+- decide whether to include travel monetary cost
+- select a savings goal if positive estimated savings exist
+- finalize the simulated purchase
 
-Show the post-finalization success card:
+Explain:
 
-- finalized basket total
-- usual-store estimate
-- estimated verified saving
-- amount counted toward budget
-- remaining budget
-- selected savings goal movement, if used
+- planning does not update spending
+- comparison does not update spending
+- only finalization updates spending
+- travel-time cost never counts as real spending
+- travel monetary cost counts only if selected
 
-Say:
+Show the success moment and verification numbers.
 
-This is the save-the-difference moment. It is simulated only: no payment, no receipt OCR, and no real transfer.
+## 7:45-8:45 - History, Favorites, And Insights
 
-## 2:15-2:45 — History And Insights
+Go to History.
 
-Open History.
+Show:
 
-In **Purchases**, show the finalized previous list and explain that reloading it is a planning action only.
+- finalized previous lists
+- favorite lists
+- list reload behavior
+- spending insight charts
+- current-month on-track prediction
 
-In **Favorites**, explain that favorites can be saved, reloaded, and deleted without affecting spending.
+Explain that reloading previous lists or favorites is a planning action only. It does not create a transaction or update spending.
 
-In **Insights**, show “Will I stay on track this month?”:
+## 8:45-9:30 - Pilot Proof And Trust
 
-- status
-- projected month-end spend
-- budget
-- projected over/under amount
-- likelihood
-- explanation bullets
-
-Say:
-
-This prediction is deterministic and explainable. It uses current simulated spend, historical average, weekly distribution, and over-budget frequency. It does not use AI.
-
-## 2:45-3:00 — Pilot Proof And Trust
-
-Open **Pilot proof** and show the simulated KPI dashboard:
+Show the simulated pilot KPI dashboard:
 
 - adoption rate
 - repeat usage
@@ -119,8 +137,26 @@ Open **Pilot proof** and show the simulated KPI dashboard:
 - basket estimate variance
 - trust/compliance status
 
-Open the **Trust and audit drawer**.
+Open the trust/audit drawer and explain:
+
+- what data is used
+- what data is not used
+- formulas
+- guardrails
+- simulated-data boundaries
+
+## 9:30-10:00 - Setup, Routing, And Closing
+
+Go to Setup.
+
+Show:
+
+- monthly budget and profile settings
+- starting location
+- OpenStreetMap Nominatim geocoding button
+- optional OpenRouteService live routing
+- reset demo data
 
 Close with:
 
-SmartSpend demonstrates a pre-purchase budgeting loop: plan the basket, compare supported stores, finalize a simulated purchase, verify estimated savings, and optionally simulate saving the difference. The MVP is transparent, deterministic, and intentionally bounded to simulated data.
+SmartSpend demonstrates a transparent pre-purchase grocery budgeting loop. The MVP is deterministic, testable, and intentionally limited to simulated financial behavior.
