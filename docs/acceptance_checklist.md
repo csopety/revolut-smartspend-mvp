@@ -69,16 +69,22 @@ streamlit run app.py
 
 - [ ] Budget/profile settings can be saved and persist after refresh.
 - [ ] Origin/address field defaults to Széll Kálmán tér, Budapest II.
-- [ ] Travel settings, optimization mode, consent, and Google Maps option are visible.
+- [ ] Starting-location controls show saved address, latitude, and longitude.
+- [ ] OpenStreetMap Nominatim geocoding runs only after clicking "Find coordinates".
+- [ ] Reset to Széll Kálmán tér restores the default origin coordinates.
+- [ ] Travel settings, optimization mode, consent, and OpenRouteService live-routing option are visible.
 - [ ] Trust/audit drawer includes data used, data not used, formulas, guardrails, and simulated-data disclaimer.
 - [ ] Drawer states no real banking connection, Revolut account, payment, retailer API, money movement, or guaranteed-cheapest claim.
 - [ ] Reset demo data restores the deterministic demo state.
 
 ## Route Fallback
 
-- [ ] App works with no `GOOGLE_MAPS_API_KEY`.
-- [ ] If Google Maps is enabled without a key or fails, route source falls back to Simulated.
-- [ ] Google Maps, when configured, only affects distance, travel time, and route source.
+- [ ] App works with no `OPENROUTESERVICE_API_KEY`.
+- [ ] OpenRouteService is optional and used only for walking/car route estimates when available.
+- [ ] If OpenRouteService is enabled without a key or fails, route source falls back to Simulated.
+- [ ] Public transport remains simulated.
+- [ ] OpenRouteService only affects distance, travel time, and route source.
+- [ ] OpenStreetMap Nominatim is used only to convert an explicitly submitted starting location into coordinates.
 
 ## Safety Language
 
