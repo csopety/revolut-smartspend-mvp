@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from smartspend.basket import Basket, BasketLine, reload_basket
@@ -146,7 +146,7 @@ def finalize_purchase(
             "Route source must be 'Simulated' or 'OpenRouteService'."
         )
 
-    finalized_at = datetime.now(UTC).isoformat(timespec="seconds")
+    finalized_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     with connect(db_path) as connection:
         price_rows = get_available_prices(connection, store_id, basket.lines)

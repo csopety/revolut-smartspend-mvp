@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from smartspend.basket import Basket, BasketLine
@@ -36,7 +36,7 @@ def save_current_basket_as_favorite(
     if not basket.lines:
         raise ValueError("Cannot save an empty basket as a favorite.")
 
-    created_at = datetime.now(UTC).isoformat(timespec="seconds")
+    created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     ensure_demo_database(db_path)
     with connect(db_path) as connection:
         cursor = connection.execute(

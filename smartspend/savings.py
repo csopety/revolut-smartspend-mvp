@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from smartspend.database import DEFAULT_DB_PATH, connect, ensure_demo_database
@@ -78,7 +78,7 @@ def simulate_save_difference_to_goal(
         raise ValueError("Savings amount must be positive to simulate a movement.")
 
     ensure_demo_database(db_path)
-    created_at = datetime.now(UTC).isoformat(timespec="seconds")
+    created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     with connect(db_path) as connection:
         goal = connection.execute(

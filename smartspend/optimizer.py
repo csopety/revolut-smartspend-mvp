@@ -1,5 +1,7 @@
 """Rule-based grocery basket optimizers for the SmartSpend MVP."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from smartspend.models import BasketItem, Store, StoreResult
