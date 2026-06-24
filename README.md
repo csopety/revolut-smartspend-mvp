@@ -150,16 +150,3 @@ Codex was used as an implementation assistant to plan phases, edit Python module
 ## License And Copyright
 
 No separate open-source license file is included. Copyright remains with the project author unless a license is added.
-
-## Demo Video Guide
-
-Video link placeholder: `TODO: add submitted demo video URL`.
-
-Suggested 3-minute flow:
-
-1. Show Home budget tracker, warning/on-track card, and simulated disclaimer.
-2. Open Plan, load or build a grocery basket, and compare stores.
-3. Explain the recommendation card, ranked alternatives, “why not other stores?” panel, and calculation receipt.
-4. Finalize a simulated purchase and show the save-the-difference success moment.
-5. Open History to show purchases, favorites, insights, and pilot KPI proof.
-6. Open Setup to show profile settings, starting location, optional routing, reset demo data, and trust/audit boundaries.
