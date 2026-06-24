@@ -1,30 +1,25 @@
 # SmartSpend Premium MVP
 
-SmartSpend is a local Streamlit MVP for a Revolut-style grocery planning feature. It helps a user compare a planned basket before shopping, estimate the budget impact, and simulate saving the difference toward a goal.
+SmartSpend helps a shopper plan a grocery basket before buying by comparing supported Budapest II stores, estimating budget impact, and simulating saving the difference toward a goal.
 
-The demo is scoped to Budapest II and four supported grocery chains: Lidl, Aldi, SPAR, and Tesco.
+## What SmartSpend Is
+
+SmartSpend is a Streamlit fintech MVP for grocery decision support. It lets a user build a basket, compare four simulated Budapest II grocery stores, review the estimated total cost including travel, finalize a simulated purchase, and track how that purchase affects a monthly grocery budget.
 
 ## Simulated MVP Disclaimer
 
-All banking, grocery, transaction, savings, route, historical, and pilot KPI data is simulated for a local demo. The app does not connect to real banks, Revolut accounts, payment systems, receipt OCR, retailer APIs, live grocery prices, or real money movement. Recommendations are estimates based on supported simulated data, not guaranteed-cheapest claims.
+This project is an educational demo. Grocery prices, budgets, transactions, savings goals, historical spending, pilot metrics, and success messages are simulated. The app does not connect to a bank, Revolut account, retailer API, payment provider, or real money movement system.
 
-## Final Feature List
+## Main Features
 
-- Premium dark phone-style Streamlit UI with four screens: Home, Plan, History, and Setup.
-- SQLite persistence at `data/smartspend_demo.db`.
-- Search-first grocery basket builder with English and Hungarian aliases.
-- 75+ simulated products and four simulated Budapest II stores.
-- Deterministic optimizer with basket price, travel cost, time cost, budget fit, confidence, unavailable items, and ranked results.
-- Investor demo scenario that loads settings and basket without finalizing a purchase.
-- Closed-loop finalization: store actually visited, custom list name, optional travel monetary cost, optional simulated savings goal, and post-finalization verification.
-- Previous grocery lists and favorite grocery lists.
-- Simulated savings goals and save-the-difference moment.
-- Current-month on-track prediction using current and historical demo data.
-- Spending insights charts and simulated pilot KPI dashboard.
-- Trust/audit drawer explaining data, formulas, guardrails, and simulation boundaries.
-- Changeable starting location in Setup with explicit OpenStreetMap Nominatim geocoding.
-- Optional OpenRouteService walking/car route lookup with safe simulated fallback.
-- Agentic-style explanation that explains calculated results only.
+- Premium dark, phone-style Streamlit interface with Home, Plan, History, and Setup screens.
+- Search-first grocery basket builder with English and Hungarian product aliases.
+- Store comparison for Lidl, Aldi, SPAR, and Tesco using simulated Budapest II data.
+- Recommendation cards, ranked alternatives, “why not other stores?” explanations, and calculation receipts.
+- Budget tracker with deterministic warnings and current-month on-track prediction.
+- Simulated purchase finalization, previous grocery lists, favorite lists, and savings goals.
+- Spending insights, Plotly charts, simulated pilot KPI dashboard, and trust/audit drawer.
+- Optional live walking/car route estimates through OpenRouteService.
 
 ## Installation
 
@@ -34,13 +29,21 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Running
+On Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+## Running The App
 
 ```bash
 streamlit run app.py
 ```
 
-Open the local URL shown by Streamlit, usually `http://localhost:8501`.
+The app creates and uses a local SQLite demo database at `data/smartspend_demo.db`.
 
 ## Testing
 
@@ -49,105 +52,114 @@ pytest
 python -m py_compile app.py smartspend/*.py
 ```
 
-The suite covers database seeding, search, basket behavior, optimizer logic, warnings, explanations, routes, transactions, previous lists, favorites, savings goals, and insights.
+The tests validate database seeding, product search, basket behavior, route fallbacks, optimizer calculations, warnings, insights, favorites, transactions, and budget-safety rules.
 
-## Architecture
+## Required Dependencies
 
-- `app.py`: Streamlit phone-style UI and screen navigation.
-- `smartspend/database.py`: SQLite initialization, migrations, seed data, and profile persistence.
-- `smartspend/geocoding.py`: OpenStreetMap Nominatim lookup for explicitly submitted starting locations.
-- `smartspend/product_search.py`: deterministic search over names, aliases, prefixes, partials, and tags.
-- `smartspend/basket.py`: basket add/edit/remove/clear logic.
-- `smartspend/optimizer.py`: rule-based recommendation engine.
-- `smartspend/route_service.py`: OpenRouteService walking/car lookup with simulated fallback.
-- `smartspend/transactions.py`: purchase finalization, spending update, and previous list persistence.
-- `smartspend/favorites.py`: favorite list save/reload/delete.
-- `smartspend/savings.py`: simulated savings goals and movements.
-- `smartspend/insights.py`: historical spending insights and on-track prediction.
-- `smartspend/warnings.py`: deterministic budget warnings.
-- `smartspend/agentic_explainer.py`: explanation layer that does not change calculations.
-- `tests/`: unit tests for backend behavior and safety rules.
+The project dependencies are listed in `requirements.txt`:
+
+- `streamlit`
+- `pandas`
+- `plotly`
+- `requests`
+- `python-dotenv`
+- `pytest`
+
+## Optional OpenRouteService Setup
+
+Live route estimates are optional. To enable OpenRouteService for walking and car routes, copy the example file and replace the placeholder value:
+
+```bash
+cp .env.example .env
+```
+
+`.env.example` uses this placeholder environment variable:
+
+```bash
+OPENROUTESERVICE_API_KEY=your_openrouteservice_key_here
+```
+
+Keep `.env` local. OpenStreetMap Nominatim does not require an API key in this MVP.
 
 ## Product Search
 
-Product discovery is typeahead-first with no category dropdown. Search matches product name, display name, Hungarian name, aliases, prefixes, partial strings, and tags. Demo terms include `cucu` and `ubi` for cucumber, `tej` for milk, `csir` for chicken products, and `trap` for Trappista cheese.
+Product discovery uses typeahead search, not a category dropdown. Search matches product names, display names, aliases, prefixes, partial strings, and tags. The seeded data includes Hungarian-friendly terms such as `cucu` and `ubi` for cucumber, `tej` for milk, `csir` for chicken products, and `trap` for Trappista cheese.
 
-## Optimizer
+## Store Recommendation Algorithm
 
-For each supported store, SmartSpend calculates:
+For each store, SmartSpend calculates product total, unavailable items, confidence score, travel monetary cost, travel-time opportunity cost, net comparison total, remaining budget after purchase, overspend amount, savings versus the usual store, savings versus the most expensive option, max-travel eligibility, and route source.
 
-- product basket total
-- unavailable required items
-- confidence score
-- travel monetary cost
-- travel-time opportunity cost
-- net comparison total
-- remaining budget after purchase
-- overspend amount
-- savings versus usual store
-- savings versus most expensive option
-- max-travel eligibility
-- route source
+The available optimization modes are cheapest basket, lowest total cost including travel, best budget fit, and balanced recommendation. Stores outside the max travel time or missing required items remain visible but are prevented from winning unless the relevant option allows it.
 
-Optimization modes include cheapest basket, lowest total cost including travel, best budget fit, and balanced recommendation. The algorithm is deterministic and auditable; AI is not used to make rankings.
+## Budget And Finalization Rules
 
-## Finalization And Budget Rules
+Building a basket does not update spending. Running a comparison does not update spending. Only finalizing a simulated grocery purchase updates the monthly spent amount.
 
-Planning a basket does not update spending. Running a recommendation does not update spending. Reloading previous lists or favorites does not update spending.
-
-Only finalizing a simulated purchase updates spent so far. Product basket total always counts toward grocery spending. Travel monetary cost counts only if the user selects it at finalization. Travel-time opportunity cost never counts as real spending.
+The product basket total always counts toward grocery spending. Travel monetary cost counts only when selected during finalization. Travel-time opportunity cost is shown for comparison but never counts as real spending. Finalization validates availability, saves the transaction and line items, stores the grocery list as a previous list, and clears the current basket.
 
 ## Previous Lists And Favorites
 
-Finalized purchases are saved as previous grocery lists. A previous list can be viewed, reloaded for planning, or saved as a favorite. Favorite lists can be saved from the current basket, viewed, reloaded, or deleted. These actions are planning conveniences and do not update spending.
+Finalized grocery lists can be viewed, inspected, reloaded into the current basket, and saved as favorites. Favorite lists can be named, viewed, reloaded, and deleted. Reloading previous lists or favorites does not update spending and does not create a transaction.
 
-## Savings Goals
+## Savings Goals Simulation
 
-The app seeds simulated goals such as Emergency fund, Holiday, and New laptop. If a finalized shop has positive estimated savings versus the usual store, the UI can simulate moving that difference into a selected goal. This is clearly labeled as simulated and does not move real money.
+The app includes simulated savings goals such as Emergency fund, Holiday, and New laptop. If a finalized shop has a positive estimated saving, SmartSpend can show a simulated “save the difference” movement toward a selected goal. This is a demo-only status update, not a transfer of real money.
 
 ## On-Track Prediction
 
-History → Insights includes “Will I stay on track this month?” It uses current simulated spend, monthly budget, historical average, weekly distribution, and over-budget frequency to produce a deterministic projection, over/under amount, likelihood percentage, and explanation bullets.
+The History screen includes a deterministic “Will I stay on track this month?” card. It uses current spend, monthly budget, seeded historical averages, weekly distribution, and over-budget frequency to estimate projected month-end spend, over/under budget amount, likelihood percentage, severity, and explanation bullets. It does not use AI.
 
-## Pilot KPI Dashboard
+## Trust, Audit, And Simulation Boundaries
 
-History → Pilot proof shows simulated adoption, repeat usage, average saving per finalized shop, savings-goal usage uplift, basket estimate variance, and trust/compliance status. Average saving uses local transactions when available and falls back to a seeded demo value otherwise.
+The trust/audit drawer explains the data used, data not used, formulas, and guardrails. Grocery prices, budgets, purchases, savings goals, historical data, and pilot metrics are simulated. OpenStreetMap Nominatim may convert a typed starting location into coordinates only when the user clicks “Find coordinates.” OpenRouteService may estimate walking/car distance and travel time when enabled. Public transport remains simulated.
 
-## Trust/Audit Drawer
+SmartSpend does not claim a guaranteed cheapest basket or guaranteed savings.
 
-Setup and Pilot proof include a trust/audit drawer with data used, data not used, formulas, guardrails, and the simulated-data disclaimer. It explicitly states there is no real banking connection, Revolut account, payment, retailer API, money movement, or guaranteed-cheapest claim.
+## Software Architecture
 
-## Starting Location And Routes
+- `app.py` contains the Streamlit UI and screen flow.
+- `smartspend/database.py` initializes SQLite, runs safe migrations, and seeds demo data.
+- `smartspend/product_search.py` handles product matching and ranking.
+- `smartspend/basket.py` manages basket operations.
+- `smartspend/optimizer.py` calculates store recommendations.
+- `smartspend/route_service.py` handles simulated routing and optional OpenRouteService routing.
+- `smartspend/geocoding.py` handles explicit OpenStreetMap Nominatim geocoding.
+- `smartspend/transactions.py`, `favorites.py`, and `savings.py` handle simulated finalization, lists, favorites, and goals.
+- `smartspend/insights.py`, `warnings.py`, and `agentic_explainer.py` provide analytics, deterministic warnings, and explanation text.
+- `tests/` contains validation and regression tests.
 
-In Setup, the user can change the starting location used for live route estimates. The user types a starting location and clicks `Find coordinates`; the app then uses OpenStreetMap Nominatim to convert that typed location into latitude/longitude coordinates. Geocoding does not run on every keystroke.
+## Synthetic Data
 
-The saved origin address and coordinates are stored locally in SQLite. If geocoding fails, the app keeps the previous valid starting coordinates. If no valid origin exists, it falls back to the default Széll Kálmán tér origin. The user can also reset the origin to Széll Kálmán tér from Setup.
+The SQLite demo database seeds four Budapest II store records, at least 75 products, product aliases in English and Hungarian, store-level price and availability rows for every product-store pair, savings goals, user profile settings, and at least six months of historical spending snapshots. The reset button restores the demo dataset.
 
-OpenRouteService uses the saved coordinates for walking and car route estimates when live routing is enabled and an API key is available. Public transport remains simulated in this MVP. If live routing is disabled, no key exists, the selected travel mode is public transport, or the route API fails, SmartSpend uses the seeded simulated route distance/time.
+## AI/Codex Usage
 
-Grocery prices, budgets, transactions, savings goals, and historical spending remain simulated regardless of geocoding or live routing. OpenStreetMap Nominatim does not use an API key. The OpenRouteService API key must stay in `.env` or another local secret source and must never be committed.
+Codex was used as an implementation assistant to plan phases, edit Python modules, build tests, improve documentation, and run verification commands. The app logic itself is deterministic; AI is not used to make live financial decisions inside the MVP.
 
-Attribution: geocoding by OpenStreetMap Nominatim. Route estimates by OpenRouteService when live routing is enabled.
+## Limitations And Not Implemented
 
-## Optional OpenRouteService
+- No real banking integration.
+- No real Revolut account connection.
+- No real payment or checkout.
+- No real retailer inventory or receipt OCR.
+- No real public transport routing.
+- No automatic background geocoding while typing.
+- No production authentication, deployment, or privacy controls.
+- No guarantee that a selected store is cheapest or that savings will occur in the real world.
 
-The app works without a live route API. If `OPENROUTESERVICE_API_KEY` is available through the environment, `.env`, or Streamlit secrets, the app can use OpenRouteService for walking and car route estimates when enabled in Setup. `ORS_API_KEY` is also supported as a fallback variable name. Public transport remains simulated in this MVP. If no key exists or the API fails, the app falls back to simulated routes. OpenRouteService only affects distance, travel time, and route source.
+## License And Copyright
 
-## AI And Codex Usage
+No separate open-source license file is included. Copyright remains with the project author unless a license is added.
 
-Codex was used to implement the MVP in phases: data and persistence, search and basket logic, route fallback, optimizer, transactions, savings goals, insights, the premium Streamlit UI, tests, and documentation. The app’s recommendation and prediction calculations remain deterministic Python logic. The agentic explanation layer only explains calculated outputs and does not change rankings, prices, spending, or savings.
+## Demo Video Guide
 
-## Limitations
+Video link placeholder: `TODO: add submitted demo video URL`.
 
-- Simulated prices may not match real stores.
-- Store availability and promotions are invented for demo purposes.
-- Route data is simulated unless OpenRouteService is enabled and available for walking or car routes; public transport routes remain simulated.
-- The app has no authentication or production privacy model.
-- The app is not financial advice.
-- There is no real Revolut integration.
-- There is no live retailer, banking, payment, receipt OCR, or account-data integration.
-- The UI is an MVP prototype, not a production mobile app.
+Suggested 3-minute flow:
 
-## Manual Acceptance Checklist
-
-See [docs/acceptance_checklist.md](docs/acceptance_checklist.md) for the final QA checklist.
+1. Show Home budget tracker, warning/on-track card, and simulated disclaimer.
+2. Open Plan, load or build a grocery basket, and compare stores.
+3. Explain the recommendation card, ranked alternatives, “why not other stores?” panel, and calculation receipt.
+4. Finalize a simulated purchase and show the save-the-difference success moment.
+5. Open History to show purchases, favorites, insights, and pilot KPI proof.
+6. Open Setup to show profile settings, starting location, optional routing, reset demo data, and trust/audit boundaries.
